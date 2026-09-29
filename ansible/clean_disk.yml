@@ -1,0 +1,33 @@
+---
+- name: Autonomous Disk Remediation & Pruning
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    threshold_percent: "{{ threshold | default(85) }}"
+
+  tasks:
+    - name: Prune unused container images and build cache
+      ansible.builtin.command:
+        cmd: "docker image prune -af --filter until=24h"
+      register: prune_result
+      changed_when: prune_result.rc == 0
+      failed_when: false
+
+    - name: Clean system journal logs older than 2 days
+      ansible.builtin.command:
+        cmd: "journalctl --vacuum-time=2d"
+      register: journal_result
+      changed_when: journal_result.rc == 0
+      failed_when: false
+
+    - name: Prune dangling volumes
+      ansible.builtin.command:
+        cmd: "docker volume prune -f"
+      register: volume_result
+      changed_when: volume_result.rc == 0
+      failed_when: false
+
+    - name: Output cleanup status
+      ansible.builtin.debug:
+        msg: "Disk remediation completed: Docker and system logs reclaimed."

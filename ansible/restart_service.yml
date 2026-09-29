@@ -1,0 +1,29 @@
+---
+- name: Autonomous Service Remediation
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    target_service: "{{ service | default('cartservice') }}"
+    target_namespace: "{{ namespace | default('default') }}"
+
+  tasks:
+    - name: Log remediation start
+      ansible.builtin.debug:
+        msg: "Initiating autonomous restart remediation for deployment/{{ target_service }} in {{ target_namespace }}"
+
+    - name: Trigger rollout restart of deployment
+      ansible.builtin.command:
+        cmd: "kubectl rollout restart deployment/{{ target_service }} -n {{ target_namespace }}"
+      register: restart_result
+      changed_when: restart_result.rc == 0
+
+    - name: Wait for rollout status to complete
+      ansible.builtin.command:
+        cmd: "kubectl rollout status deployment/{{ target_service }} -n {{ target_namespace }} --timeout=90s"
+      register: status_result
+      changed_when: false
+
+    - name: Report remediation outcome
+      ansible.builtin.debug:
+        msg: "Service {{ target_service }} restarted successfully. Result: {{ status_result.stdout }}"

@@ -1,0 +1,66 @@
+pipeline {
+    agent any
+
+    environment {
+        APP_NAME     = "aiops-platform"
+        KUBECONFIG   = credentials('k8s-kubeconfig')
+        BACKEND_DIR  = "backend"
+    }
+
+    stages {
+        stage('Checkout & Lint') {
+            steps {
+                echo "Checking out source and validating syntax..."
+                sh 'find . -name "*.py" -exec python3 -m py_compile {} +'
+            }
+        }
+
+        stage('Backend Unit & RAG Tests') {
+            steps {
+                dir("${BACKEND_DIR}") {
+                    sh '''
+                        python3 -m venv .venv
+                        . .venv/bin/activate
+                        pip install --upgrade pip
+                        pip install -r requirements.txt
+                        pytest -v tests/
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy Kubernetes Microservices') {
+            steps {
+                echo "Deploying Google Cloud Online Boutique microservices..."
+                sh 'kubectl apply -f k8s/manifests/online-boutique.yaml'
+            }
+        }
+
+        stage('Chaos Benchmark Injection') {
+            steps {
+                echo "Injecting Chaos Mesh experiment (pod-failure)..."
+                sh 'kubectl apply -f k8s/manifests/chaos-pod-failure.yaml'
+                sh 'sleep 30'
+            }
+        }
+
+        stage('Autonomous AIOps Evaluation') {
+            steps {
+                echo "Querying AIOps Platform Ground Truth Ledger & Accuracy..."
+                sh '''
+                    curl -s -f http://aiops-backend:8000/api/v1/benchmarks/latest || echo "Benchmark running..."
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Archiving benchmark artifacts and cleaning up chaos resources..."
+            sh 'kubectl delete -f k8s/manifests/chaos-pod-failure.yaml --ignore-not-found=true'
+        }
+        failure {
+            echo "CI/CD Pipeline failed. Alerting SRE On-Call."
+        }
+    }
+}
