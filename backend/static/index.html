@@ -686,8 +686,19 @@ Fetching real Prometheus metrics from host...
         grid.innerHTML = services.map(s => {
           const isUp = s.status === 'HEALTHY';
           const k8sInfo = s.k8s_pod 
-            ? `<div class="text-[10px] text-brand-300 mono truncate">K8s Pod: ${s.k8s_pod.pod_name} (${s.k8s_pod.pod_phase})</div>`
-            : `<div class="text-[10px] text-slate-500 mono">K8s Pod: linked via mesh socket</div>`;
+            ? `<div class="p-2 rounded-lg bg-slate-900/60 border border-slate-800 flex items-center justify-between text-[11px] mono">
+                 <div class="truncate text-slate-300 flex items-center gap-1.5">
+                   <span class="text-blue-400">☸️</span>
+                   <span class="truncate font-semibold text-sky-300">${s.k8s_pod.pod_name}</span>
+                 </div>
+                 <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${s.k8s_pod.pod_phase === 'Running' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-rose-950 text-rose-400 border border-rose-800'}">
+                   ${s.k8s_pod.pod_phase} (r:${s.k8s_pod.restart_count || 0})
+                 </span>
+               </div>`
+            : `<div class="p-2 rounded-lg bg-slate-900/40 border border-slate-800/60 flex items-center justify-between text-[10px] text-slate-400 mono">
+                 <span class="flex items-center gap-1"><span class="text-amber-400">⚡</span> Host Mesh Process</span>
+                 <span class="text-slate-500">K8s: Standby</span>
+               </div>`;
 
           return `
             <div class="p-4 rounded-xl border ${isUp ? 'border-surface-border bg-surface-card' : 'border-rose-500/60 bg-rose-950/20'} space-y-3">

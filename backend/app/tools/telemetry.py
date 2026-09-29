@@ -62,23 +62,59 @@ class TelemetryTools:
     @classmethod
     def get_k8s_pod_status(cls, service_name: str, namespace: str = "default") -> Dict[str, Any]:
         """Fetch pod statuses and restart counts from Kubernetes API."""
+        import os
         try:
             from kubernetes import client, config
+            loaded = False
             try:
                 config.load_incluster_config()
+                loaded = True
             except Exception:
-                config.load_kube_config()
-            
+                pass
+
+            if not loaded:
+                possible_configs = [
+                    os.environ.get("KUBECONFIG"),
+                    os.path.expanduser("~/.kube/config"),
+                    "/home/moha/.kube/config",
+                    "/root/.kube/config",
+                    "/etc/rancher/k3s/k3s.yaml"
+                ]
+                for p in possible_configs:
+                    if p and os.path.exists(p) and os.path.getsize(p) > 0:
+                        try:
+                            config.load_kube_config(config_file=p)
+                            loaded = True
+                            break
+                        except Exception:
+                            continue
+
+            if not loaded:
+                return {"error": "No valid kubeconfig found", "service": service_name, "pods": []}
+
             v1 = client.CoreV1Api()
-            pods = v1.list_namespaced_pod(namespace=namespace, label_selector=f"app={service_name}")
+            all_pods = v1.list_namespaced_pod(namespace=namespace).items
+            clean_name = service_name.lower().replace("_", "-")
+            alt_name = clean_name.replace("-", "")
+
             items = []
-            for pod in pods.items:
-                items.append({
-                    "name": pod.metadata.name,
-                    "phase": pod.status.phase,
-                    "restart_count": sum(c.restart_count for c in (pod.status.container_statuses or [])),
-                    "node": pod.spec.node_name
-                })
+            for pod in all_pods:
+                labels = pod.metadata.labels or {}
+                app_label = (labels.get("app") or labels.get("app.kubernetes.io/name") or "").lower()
+                pname = pod.metadata.name.lower()
+
+                # Match by label or by name prefix
+                if (app_label in [clean_name, alt_name] or
+                    pname.startswith(clean_name) or
+                    pname.startswith(alt_name)):
+                    items.append({
+                        "name": pod.metadata.name,
+                        "phase": pod.status.phase,
+                        "restart_count": sum(c.restart_count for c in (pod.status.container_statuses or [])),
+                        "node": pod.spec.node_name or "local-node",
+                        "status": pod.status.phase
+                    })
+
             return {"service": service_name, "namespace": namespace, "pods": items}
         except Exception as e:
             logger.debug(f"Kubernetes query notice: {e}")
