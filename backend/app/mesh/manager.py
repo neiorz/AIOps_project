@@ -334,7 +334,6 @@ class ProcessMeshManager:
                 if pods:
                     pod_to_kill = pods[0]["name"]
                     from kubernetes import client, config
-                    import os
                     for kpath in [os.environ.get("KUBECONFIG"), "/home/moha/.kube/config", os.path.expanduser("~/.kube/config"), "/etc/rancher/k3s/k3s.yaml"]:
                         if kpath and os.path.exists(kpath) and os.path.getsize(kpath) > 0:
                             try:
@@ -396,7 +395,7 @@ class ProcessMeshManager:
         k8s_rollout = False
         try:
             from kubernetes import client, config
-            import os, datetime
+            import datetime
             for kpath in [os.environ.get("KUBECONFIG"), "/home/moha/.kube/config", os.path.expanduser("~/.kube/config"), "/etc/rancher/k3s/k3s.yaml"]:
                 if kpath and os.path.exists(kpath) and os.path.getsize(kpath) > 0:
                     try:
