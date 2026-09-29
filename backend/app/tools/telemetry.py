@@ -81,6 +81,6 @@ class TelemetryTools:
                 })
             return {"service": service_name, "namespace": namespace, "pods": items}
         except Exception as e:
-            logger.warning(f"Kubernetes query error: {e}")
+            logger.debug(f"Kubernetes query notice: {e}")
             return {"error": str(e), "service": service_name, "pods": []}
 
