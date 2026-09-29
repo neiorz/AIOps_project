@@ -322,15 +322,45 @@ class ProcessMeshManager:
         if not s:
             return {"status": "ERROR", "message": f"Service '{name}' not found in mesh"}
 
+        k8s_killed_pod = None
         if experiment_type in ["PodFailure", "ProcessKill", "SIGKILL"]:
             s.kill_pod()
+
+            # Execute real Kubernetes Pod Kill if cluster pod exists
+            try:
+                from app.tools.telemetry import TelemetryTools
+                k8s_status = TelemetryTools.get_k8s_pod_status(name)
+                pods = k8s_status.get("pods", [])
+                if pods:
+                    pod_to_kill = pods[0]["name"]
+                    from kubernetes import client, config
+                    import os
+                    for kpath in [os.environ.get("KUBECONFIG"), "/home/moha/.kube/config", os.path.expanduser("~/.kube/config"), "/etc/rancher/k3s/k3s.yaml"]:
+                        if kpath and os.path.exists(kpath) and os.path.getsize(kpath) > 0:
+                            try:
+                                config.load_kube_config(config_file=kpath)
+                                break
+                            except Exception:
+                                continue
+                    v1 = client.CoreV1Api()
+                    v1.delete_namespaced_pod(name=pod_to_kill, namespace="default", grace_period_seconds=0)
+                    k8s_killed_pod = pod_to_kill
+                    logger.info(f"Terminated real Kubernetes pod '{pod_to_kill}' via CoreV1Api")
+            except Exception as e:
+                logger.warning(f"Could not kill Kubernetes pod for {name}: {e}")
+
+            msg = f"Killed microservice {name} (SIGKILL / Exit 137). Port {s.port} returns HTTP 503."
+            if k8s_killed_pod:
+                msg += f" Kubernetes Pod '{k8s_killed_pod}' terminated in default namespace."
+
             return {
                 "status": "SUCCESS",
                 "action": "POD_KILL",
                 "killed_pid": os.getpid(),
                 "service": name,
                 "port": s.port,
-                "message": f"Killed microservice {name} (SIGKILL / Exit 137). Port {s.port} returns HTTP 503 Service Unavailable."
+                "k8s_killed_pod": k8s_killed_pod,
+                "message": msg
             }
 
         elif experiment_type in ["StressChaos", "CPUBurn"]:
@@ -361,13 +391,56 @@ class ProcessMeshManager:
             return {"status": "ERROR", "message": f"Service '{name}' not found"}
 
         s.resurrect_pod()
+
+        # Trigger real rollout restart in Kubernetes if deployment exists
+        k8s_rollout = False
+        try:
+            from kubernetes import client, config
+            import os, datetime
+            for kpath in [os.environ.get("KUBECONFIG"), "/home/moha/.kube/config", os.path.expanduser("~/.kube/config"), "/etc/rancher/k3s/k3s.yaml"]:
+                if kpath and os.path.exists(kpath) and os.path.getsize(kpath) > 0:
+                    try:
+                        config.load_kube_config(config_file=kpath)
+                        break
+                    except Exception:
+                        continue
+            apps_v1 = client.AppsV1Api()
+            dep_names = [name.lower().replace("-", ""), name.lower()]
+            for dep in dep_names:
+                try:
+                    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    body = {
+                        "spec": {
+                            "template": {
+                                "metadata": {
+                                    "annotations": {
+                                        "kubectl.kubernetes.io/restartedAt": now
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    apps_v1.patch_namespaced_deployment(name=dep, namespace="default", body=body)
+                    k8s_rollout = True
+                    logger.info(f"Triggered Kubernetes rollout restart on deployment '{dep}'")
+                    break
+                except Exception:
+                    continue
+        except Exception as e:
+            logger.warning(f"Could not rollout restart Kubernetes deployment: {e}")
+
+        msg = f"Ansible self-healing resurrected {name} on port {s.port}. Ingress traffic restored (HTTP 200 OK)."
+        if k8s_rollout:
+            msg += f" Kubernetes deployment rollout restarted."
+
         return {
             "status": "SUCCESS",
             "action": "SERVICE_RESTART",
             "service": name,
             "port": s.port,
+            "k8s_rollout": k8s_rollout,
             "verified_healthy": True,
-            "message": f"Ansible self-healing resurrected {name} on port {s.port}. Ingress traffic restored (HTTP 200 OK)."
+            "message": msg
         }
 
     def scrape_prometheus_metrics(self) -> str:

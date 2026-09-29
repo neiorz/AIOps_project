@@ -1,5 +1,10 @@
 import logging
 import os
+
+# Ensure local Kubernetes API (127.0.0.1:6443) and microservices bypass HTTP proxies
+os.environ["NO_PROXY"] = "127.0.0.1,localhost,::1"
+os.environ["no_proxy"] = "127.0.0.1,localhost,::1"
+
 from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
