@@ -30,8 +30,10 @@ class AutonomousSREAgent:
         )
 
         # Step 2: Retrieve Relevant DevOps Runbooks from ChromaDB (RAG)
-        query = f"{incident.primary_service} {incident.root_cause_candidate} {' '.join(incident.affected_services)}"
-        relevant_runbooks = self.retriever.search_relevant_runbooks(query=query, n_results=2)
+        # Construct precise semantic search query combining service name and failure signature
+        clean_cause = incident.root_cause_candidate.replace("_", " ")
+        query = f"{incident.primary_service} {clean_cause} outage failure degradation"
+        relevant_runbooks = self.retriever.search_relevant_runbooks(query=query, n_results=3)
 
         # Step 3: Tool Diagnostics (PromQL & K8s Status)
         evidence: List[Dict[str, Any]] = []
@@ -47,10 +49,10 @@ class AutonomousSREAgent:
         # Step 4: Synthesize Root Cause Analysis (RCA)
         matched_runbook = relevant_runbooks[0] if relevant_runbooks else None
         rca_title = matched_runbook["title"] if matched_runbook else f"Degradation in {incident.primary_service}"
+        confidence = matched_runbook["similarity_score"] if matched_runbook else 0.88
         
-        remediation_action = "kubectl rollout restart deployment " + incident.primary_service
-        if matched_runbook and "memory" in matched_runbook.get("category", ""):
-            remediation_action = f"kubectl set resources deployment/{incident.primary_service} --limits=memory=512Mi"
+        # Standardize remediation command for Ansible playbook execution
+        remediation_action = f"ansible-playbook ansible/restart_service.yml -e service={incident.primary_service}"
 
         investigation_duration = round(time.time() - investigation_start, 3)
 
@@ -61,12 +63,16 @@ class AutonomousSREAgent:
             "investigation_duration_seconds": investigation_duration,
             "root_cause_analysis": {
                 "diagnosis": rca_title,
-                "confidence_score": 0.94 if matched_runbook else 0.70,
+                "confidence_score": confidence,
                 "primary_service": incident.primary_service,
                 "affected_services": incident.affected_services,
                 "evidence_gathered": evidence,
                 "referenced_runbooks": [
-                    {"title": rb["title"], "category": rb["category"], "similarity": rb["similarity_score"]}
+                    {
+                        "title": rb["title"],
+                        "category": rb["category"],
+                        "similarity": rb["similarity_score"]
+                    }
                     for rb in relevant_runbooks
                 ],
                 "recommended_remediation": remediation_action
@@ -77,4 +83,3 @@ _agent = AutonomousSREAgent()
 
 def get_sre_agent() -> AutonomousSREAgent:
     return _agent
-

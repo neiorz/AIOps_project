@@ -266,6 +266,20 @@ class ProcessMeshManager:
         if not s:
             return {"service": name, "status": "UNKNOWN"}
 
+        # Check real Kubernetes cluster pods if configured
+        from app.tools.telemetry import TelemetryTools
+        k8s_info = TelemetryTools.get_k8s_pod_status(name)
+        k8s_pods = k8s_info.get("pods", [])
+        pod_metadata = None
+        if k8s_pods:
+            p0 = k8s_pods[0]
+            pod_metadata = {
+                "pod_name": p0.get("name"),
+                "pod_phase": p0.get("phase"),
+                "restart_count": p0.get("restart_count", 0),
+                "node": p0.get("node")
+            }
+
         if not s.is_running:
             return {
                 "service": name,
@@ -279,7 +293,8 @@ class ProcessMeshManager:
                 "uptime_seconds": 0,
                 "requests_total": s.requests_total,
                 "added_latency_ms": 0,
-                "cpu_burning": False
+                "cpu_burning": False,
+                "k8s_pod": pod_metadata
             }
 
         cpu, mem = s._get_resource_usage()
@@ -295,7 +310,8 @@ class ProcessMeshManager:
             "uptime_seconds": round(time.time() - s.start_time, 1),
             "requests_total": s.requests_total,
             "added_latency_ms": s.added_latency_ms,
-            "cpu_burning": s.is_burning_cpu
+            "cpu_burning": s.is_burning_cpu,
+            "k8s_pod": pod_metadata
         }
 
     def get_mesh_status(self) -> List[Dict[str, Any]]:
@@ -384,3 +400,4 @@ class ProcessMeshManager:
 
 def get_mesh_manager() -> ProcessMeshManager:
     return ProcessMeshManager.get_instance()
+

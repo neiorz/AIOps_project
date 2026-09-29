@@ -157,3 +157,4 @@ if __name__ == "__main__":
     os.environ["SERVICE_PORT"] = str(args.port)
 
     uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning")
+

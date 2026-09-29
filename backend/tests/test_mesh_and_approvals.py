@@ -82,3 +82,4 @@ def test_human_rejection_workflow(test_client):
     # Verify incident is now REJECTED
     inc_rejected = test_client.get(f"/api/v1/incidents/{inc_id}").json()
     assert inc_rejected["incident"]["status"] == "REJECTED"
+

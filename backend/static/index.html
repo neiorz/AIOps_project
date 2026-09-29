@@ -685,6 +685,10 @@ Fetching real Prometheus metrics from host...
         const grid = document.getElementById("servicesStatusGrid");
         grid.innerHTML = services.map(s => {
           const isUp = s.status === 'HEALTHY';
+          const k8sInfo = s.k8s_pod 
+            ? `<div class="text-[10px] text-brand-300 mono truncate">K8s Pod: ${s.k8s_pod.pod_name} (${s.k8s_pod.pod_phase})</div>`
+            : `<div class="text-[10px] text-slate-500 mono">K8s Pod: linked via mesh socket</div>`;
+
           return `
             <div class="p-4 rounded-xl border ${isUp ? 'border-surface-border bg-surface-card' : 'border-rose-500/60 bg-rose-950/20'} space-y-3">
               <div class="flex items-center justify-between">
@@ -696,6 +700,7 @@ Fetching real Prometheus metrics from host...
                   ${s.status}
                 </span>
               </div>
+              ${k8sInfo}
               <div class="grid grid-cols-3 gap-2 text-[11px] mono pt-2 border-t border-surface-border/50 text-slate-300">
                 <div>Port: <span class="text-white">${s.port}</span></div>
                 <div>CPU: <span class="text-white">${s.cpu_percent}%</span></div>
@@ -833,27 +838,33 @@ Fetching real Prometheus metrics from host...
         const activeBadge = document.getElementById("activeIncidentsBadge");
         const list = document.getElementById("incidentsQueueList");
 
-        const openCount = data.filter(i => i.incident.status !== "RESOLVED").length;
+        // Filter ONLY unresolved incidents for the active queue
+        const activeList = data.filter(i => i.incident.status !== "RESOLVED");
+        const openCount = activeList.length;
         if (countBadge) countBadge.innerText = openCount;
         if (activeBadge) activeBadge.innerText = `${openCount} Active`;
 
-        if (data.length === 0) {
+        if (activeList.length === 0) {
           list.innerHTML = `<div class="p-6 text-center text-slate-500 text-xs">No active incidents. System healthy.</div>`;
           document.getElementById("humanApprovalGateCard").classList.add("hidden");
+          if (!selectedIncident || selectedIncident.incident.status === "RESOLVED") {
+            document.getElementById("inspIncidentId").innerText = "None (All Resolved)";
+            document.getElementById("inspStatusBadge").innerText = "RESOLVED";
+            document.getElementById("inspStatusBadge").className = "text-xs font-semibold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300";
+          }
           return;
         }
 
-        list.innerHTML = data.map(item => {
+        list.innerHTML = activeList.map(item => {
           const inc = item.incident;
           const sla = item.sla;
           const isPending = inc.status === "PENDING_APPROVAL";
-          const isResolved = inc.status === "RESOLVED";
 
           return `
             <div onclick="selectIncident('${inc.incident_id}')" class="p-3 rounded-lg border ${selectedIncident?.incident.incident_id === inc.incident_id ? 'border-brand-500 bg-surface-subtle' : 'border-surface-border bg-surface-bg'} hover:border-brand-500/60 cursor-pointer transition-all space-y-1.5">
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-white mono">${inc.primary_service}</span>
-                <span class="px-1.5 py-0.2 rounded text-[10px] font-bold ${isResolved ? 'bg-emerald-950 text-emerald-400' : isPending ? 'bg-amber-950 text-amber-300 border border-amber-800 animate-pulse' : 'bg-rose-950 text-rose-400'}">
+                <span class="px-1.5 py-0.2 rounded text-[10px] font-bold ${isPending ? 'bg-amber-950 text-amber-300 border border-amber-800 animate-pulse' : 'bg-rose-950 text-rose-400'}">
                   ${inc.status}
                 </span>
               </div>
@@ -866,11 +877,8 @@ Fetching real Prometheus metrics from host...
           `;
         }).join('');
 
-        if (renderFirst && data.length > 0 && !selectedIncident) {
-          selectIncident(data[0].incident.incident_id);
-        } else if (selectedIncident) {
-          // Refresh selection
-          selectIncident(selectedIncident.incident.incident_id);
+        if (renderFirst && activeList.length > 0 && (!selectedIncident || selectedIncident.incident.status === "RESOLVED")) {
+          selectIncident(activeList[0].incident.incident_id);
         }
 
       } catch (err) {
@@ -890,6 +898,14 @@ Fetching real Prometheus metrics from host...
         ? "text-xs font-semibold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300"
         : "text-xs font-semibold px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800";
 
+      const gateCard = document.getElementById("humanApprovalGateCard");
+      
+      // If already resolved, immediately hide gate card
+      if (match.incident.status === "RESOLVED" || match.incident.status === "REJECTED") {
+        gateCard.classList.add("hidden");
+        return;
+      }
+
       // Trigger Diagnosis to get RCA
       try {
         const diagRes = await fetch(`/api/v1/incidents/${incId}/diagnose`, { method: 'POST' });
@@ -899,11 +915,11 @@ Fetching real Prometheus metrics from host...
         document.getElementById("inspRcaHeadline").innerText = rca.diagnosis;
         document.getElementById("inspConfidence").innerText = `${(rca.confidence_score * 100).toFixed(1)}%`;
         if (rca.referenced_runbooks && rca.referenced_runbooks.length > 0) {
-          document.getElementById("inspRunbook").innerText = rca.referenced_runbooks[0].title;
+          const topRb = rca.referenced_runbooks[0];
+          document.getElementById("inspRunbook").innerText = `${topRb.title} (Match: ${(topRb.similarity * 100).toFixed(1)}%)`;
         }
 
         // CONTROL HUMAN APPROVAL GATE CARD
-        const gateCard = document.getElementById("humanApprovalGateCard");
         if (!isAutonomousMode && match.incident.status !== "RESOLVED" && match.incident.status !== "REJECTED") {
           gateCard.classList.remove("hidden");
           document.getElementById("gateActionCommand").innerText = rca.recommended_remediation;
@@ -921,24 +937,33 @@ Fetching real Prometheus metrics from host...
       if (!selectedIncident) return;
       const incId = selectedIncident.incident.incident_id;
       const stream = document.getElementById("remediationStreamOutput");
+      const gateCard = document.getElementById("humanApprovalGateCard");
 
-      stream.innerHTML = `<div>[APPROVAL GATE] Operator clicked APPROVE. Triggering self-healing...</div>`;
+      // Hide approval card immediately to prevent UI loop
+      gateCard.classList.add("hidden");
+      stream.innerHTML = `<div>[APPROVAL GATE] Operator clicked APPROVE. Triggering Ansible playbook...</div>`;
 
       try {
         const res = await fetch(`/api/v1/incidents/${incId}/approve`, { method: 'POST' });
         const data = await res.json();
 
+        stream.innerHTML = "";
         data.execution_output.forEach((line, idx) => {
           setTimeout(() => {
             const row = document.createElement("div");
-            row.className = line.includes("HEALTHY") || line.includes("resolved") ? "text-emerald-400 font-bold" : "text-slate-300";
+            row.className = line.includes("PLAY RECAP") || line.includes("ok=") || line.includes("verified") 
+              ? "text-emerald-400 font-bold" 
+              : line.includes("FAILED") || line.includes("ERROR") 
+              ? "text-amber-400" 
+              : "text-slate-300";
             row.innerText = line;
             stream.appendChild(row);
             stream.scrollTop = stream.scrollHeight;
-          }, idx * 100);
+          }, idx * 50);
         });
 
-        showToast("Remediation Approved! Container self-healed and restored to HEALTHY.", "success");
+        showToast("Remediation Approved! Ansible playbook executed and incident RESOLVED.", "success");
+        selectedIncident = null;
         await loadMeshStatus();
         await loadIncidents();
 

@@ -42,7 +42,7 @@ class AlertCorrelationEngine:
         # Check if alert matches any active incident within the time window
         matched_incident: Optional[CorrelatedIncident] = None
         for inc_id, inc in self.active_incidents.items():
-            if inc.tenant_id == alert.tenant_id:
+            if inc.tenant_id == alert.tenant_id and inc.status not in ["RESOLVED", "REJECTED"]:
                 # Same service or cascading dependency within time window
                 time_diff = current_time - inc.updated_at
                 if time_diff <= self.time_window:

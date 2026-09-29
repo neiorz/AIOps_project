@@ -72,3 +72,4 @@ def start_all_mesh_services():
     mgr = get_mesh_manager()
     mgr.start_all()
     return {"status": "SUCCESS", "message": "All real microservices started."}
+
