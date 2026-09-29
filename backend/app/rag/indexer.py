@@ -74,3 +74,4 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     count = index_all_runbooks()
     print(f"Indexed {count} runbooks.")
+

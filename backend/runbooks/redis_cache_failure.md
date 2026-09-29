@@ -26,3 +26,4 @@ The cartservice and session store depend on Redis. When Redis suffers connection
    - Execute self-healing action: `ansible-playbook ansible/restart_service.yml -e "service=redis"`
 3. Verify Cart Service recovery:
    - `kubectl rollout restart deployment cartservice`
+

@@ -30,3 +30,4 @@ dist/
 # Environment variables & secrets
 .env
 *.local
+

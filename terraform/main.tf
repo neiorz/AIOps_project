@@ -37,3 +37,4 @@ resource "kubernetes_namespace" "chaos_mesh" {
     name = "chaos-mesh"
   }
 }
+

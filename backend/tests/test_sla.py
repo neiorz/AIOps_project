@@ -52,3 +52,4 @@ def test_sla_critical_severity_acceleration():
     status_warning = SLARiskCalculator.calculate_sla_status("tenant_a", created_at, now, "warning")
     status_critical = SLARiskCalculator.calculate_sla_status("tenant_a", created_at, now, "critical")
     assert status_critical["risk_score"] > status_warning["risk_score"]
+

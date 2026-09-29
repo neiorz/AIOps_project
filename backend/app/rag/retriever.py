@@ -51,3 +51,4 @@ class RunbookRetriever:
 
 def get_runbook_retriever() -> RunbookRetriever:
     return RunbookRetriever()
+

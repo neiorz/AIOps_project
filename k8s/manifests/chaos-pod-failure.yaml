@@ -14,3 +14,4 @@ spec:
   duration: "60s"
   scheduler:
     cron: "@every 10m"
+

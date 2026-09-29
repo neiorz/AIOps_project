@@ -29,3 +29,4 @@ High inter-service network latency or packet drop occurs when service-to-service
    - Scale target deployment replicas to distribute ingress connections: `kubectl scale deployment <service-name> --replicas=3`
 3. Fallback:
    - Restart the target service pod to reset connection pool: `kubectl rollout restart deployment <service-name>`
+

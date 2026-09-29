@@ -31,3 +31,4 @@ def test_index_and_retrieve_runbooks():
     net_results = retriever.search_relevant_runbooks(query="packet loss high p99 latency timeout", n_results=1)
     assert len(net_results) > 0
     assert "network" in net_results[0]["category"] or "Latency" in net_results[0]["title"]
+

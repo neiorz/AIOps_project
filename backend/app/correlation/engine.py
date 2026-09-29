@@ -95,3 +95,4 @@ _correlation_engine = AlertCorrelationEngine()
 
 def get_correlation_engine() -> AlertCorrelationEngine:
     return _correlation_engine
+

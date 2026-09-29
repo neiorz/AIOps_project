@@ -28,3 +28,4 @@ When microservices exceed their allocated CPU limits or CFS quotas, the Linux CF
    - `kubectl set resources deployment/<service> --limits=cpu=1000m --requests=cpu=500m`
 3. If caused by StressChaos:
    - Clean up CPU burner: `kubectl delete stresschaos -l target=<service>`
+

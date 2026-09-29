@@ -24,3 +24,4 @@ async def receive_alert(alert: RawAlert, background_tasks: BackgroundTasks):
         "total_clustered_alerts": incident.total_alerts,
         "primary_service": incident.primary_service
     }
+

@@ -29,3 +29,4 @@ Pods experiencing memory leaks or insufficient cgroup limits get terminated by t
    - Reclaim memory stress: `kubectl delete stresschaos <stress-name> -n chaos-mesh`
 3. Restart failed deployment:
    - `kubectl rollout restart deployment <service>`
+

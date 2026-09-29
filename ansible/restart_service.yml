@@ -27,3 +27,4 @@
     - name: Report remediation outcome
       ansible.builtin.debug:
         msg: "Service {{ target_service }} restarted successfully. Result: {{ status_result.stdout }}"
+

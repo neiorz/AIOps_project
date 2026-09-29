@@ -15,3 +15,4 @@ variable "boutique_namespace" {
   type        = "string"
   default     = "default"
 }
+

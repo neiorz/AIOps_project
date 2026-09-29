@@ -22,3 +22,4 @@ Failures in the Payment Service halt checkout transactions, directly affecting b
    - `kubectl rollout restart deployment paymentservice`
 2. Validate mock external payment credentials or upstream mock endpoints.
 3. Fallback to resilient circuit breaking to notify users gracefully rather than hard 500 error.
+

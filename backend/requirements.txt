@@ -11,3 +11,4 @@ python-multipart>=0.0.9
 kubernetes>=29.0.0
 python-dotenv>=1.0.1
 pyyaml>=6.0.1
+

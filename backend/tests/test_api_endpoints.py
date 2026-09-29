@@ -54,3 +54,4 @@ def test_on_demand_diagnosis_api(test_client):
     assert "root_cause_analysis" in diag_data
     assert "confidence_score" in diag_data["root_cause_analysis"]
     assert "referenced_runbooks" in diag_data["root_cause_analysis"]
+

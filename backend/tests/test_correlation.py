@@ -70,3 +70,4 @@ def test_different_tenant_creates_separate_incident():
     assert inc_a.incident_id != inc_b.incident_id
     assert inc_a.tenant_id == "tenant_a"
     assert inc_b.tenant_id == "tenant_b"
+

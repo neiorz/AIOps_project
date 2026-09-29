@@ -28,3 +28,4 @@ def reindex_runbooks():
         "status": "success",
         "indexed_runbooks": count
     }
+

@@ -52,3 +52,4 @@ class ChromaManager:
 
 def get_chroma_manager() -> ChromaManager:
     return ChromaManager()
+
