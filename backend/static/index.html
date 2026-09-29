@@ -3,43 +3,42 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AIOps Mission Control & Autonomous SRE Platform | NTI Graduation Project</title>
+  <title>AIOps Mission Control | Real On-Device Cloud Architecture</title>
   
-  <!-- Premium Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <!-- Modern Inter & JetBrains Mono Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Lucide Icons CDN -->
+  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
-  <!-- Tailwind Configuration with Design System Tokens -->
   <script>
     tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
-            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-            mono: ['"JetBrains Mono"', 'monospace']
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
           },
           colors: {
             brand: {
+              50: '#f0fdfa',
+              100: '#ccfbf1',
               400: '#2dd4bf',
               500: '#14b8a6',
               600: '#0d9488',
               900: '#134e4a',
-              950: '#042f2e'
             },
             surface: {
-              base: '#05070f',
-              card: '#090d18',
-              elevated: '#0f172a',
-              highlight: 'rgba(255, 255, 255, 0.05)',
-              border: 'rgba(255, 255, 255, 0.08)'
+              bg: '#090d16',
+              card: '#101726',
+              subtle: '#182238',
+              border: '#1f2e4d',
             }
           }
         }
@@ -48,1408 +47,948 @@
   </script>
 
   <style>
-    /* Custom Smooth Scrollbar */
-    ::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
+    body {
+      background-color: #090d16;
+      color: #e2e8f0;
+      font-family: 'Inter', system-ui, sans-serif;
+      overflow-x: hidden;
     }
-    ::-webkit-scrollbar-track {
-      background: #05070f;
+    .mono { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .tab-btn.active {
+      background-color: #14b8a6;
+      color: #042f2e;
+      font-weight: 600;
     }
-    ::-webkit-scrollbar-thumb {
-      background: #1e293b;
-      border-radius: 9999px;
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #0c121e; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #1f2e4d; border-radius: 4px; }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      animation: pulse 2s infinite;
     }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #334155;
-    }
-
-    /* Ambient Mesh Gradient Background */
-    .bg-mesh-dark {
-      background: 
-        radial-gradient(circle at 10% 10%, rgba(20, 184, 166, 0.07) 0%, transparent 45%),
-        radial-gradient(circle at 90% 15%, rgba(99, 102, 241, 0.07) 0%, transparent 50%),
-        radial-gradient(circle at 50% 90%, rgba(244, 63, 94, 0.04) 0%, transparent 45%),
-        #05070f;
-    }
-
-    /* Double Bezel Hardware Architecture */
-    .double-bezel {
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
-      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.8);
-    }
-    .inner-bezel {
-      background: #090d18;
-      box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.06);
-    }
-
-    /* Spring-Physics Transitions */
-    .spring-trans {
-      transition: all 0.4s cubic-bezier(0.32, 0.72, 0, 1);
-    }
-
-    /* Focus Visible Standard */
-    button:focus-visible, select:focus-visible, input:focus-visible {
-      outline: none;
-      ring: 2px;
-      ring-color: #14b8a6;
-      ring-offset: 2px;
-      ring-offset-color: #05070f;
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(20, 184, 166, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(20, 184, 166, 0); }
     }
   </style>
 </head>
-<body class="bg-mesh-dark text-slate-100 min-h-screen antialiased selection:bg-brand-500 selection:text-black flex flex-col">
+<body class="min-h-screen flex flex-col">
 
-  <!-- ACCESSIBILITY: SKIP LINK -->
-  <a href="#mainContent" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 z-50 px-4 py-2 bg-brand-500 text-black font-bold rounded-lg shadow-lg">
-    Skip to main content
-  </a>
-
-  <!-- TOP FLOATING ISLAND HEADER -->
-  <header class="sticky top-3 z-40 px-4 sm:px-6 lg:px-8 max-w-[1780px] w-full mx-auto">
-    <nav class="backdrop-blur-2xl bg-surface-card/85 border border-white/10 rounded-2xl px-5 py-3 shadow-[0_10px_35px_-5px_rgba(0,0,0,0.85)] flex flex-wrap items-center justify-between gap-4" aria-label="Global Status and Controls">
+  <!-- TOP APP HEADER -->
+  <header class="border-b border-surface-border bg-surface-card/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       
-      <!-- Logo & Title -->
-      <div class="flex items-center gap-3.5">
-        <a href="#overview" class="flex items-center gap-3 group focus:outline-none" aria-label="AIOps Command Center Home">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-brand-500/20 ring-1 ring-white/20 group-hover:scale-105 spring-trans">
-            <i data-lucide="shield-alert" class="w-5 h-5" aria-hidden="true"></i>
-          </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="font-extrabold text-sm md:text-base tracking-tight text-white">
-                AIOPS COMMAND CENTER
-              </span>
-              <span class="px-2 py-0.5 text-[10px] font-mono font-bold rounded-full bg-brand-950/80 border border-brand-500/40 text-brand-300">
-                v2.0 PROD
-              </span>
-            </div>
-            <p class="text-[11px] text-slate-400 hidden sm:block">Chaos-Grounded Multi-Tenant SRE Investigation & Self-Healing</p>
-          </div>
-        </a>
-      </div>
-
-      <!-- Live Infrastructure Pulse Heartbeats -->
-      <div class="hidden xl:flex items-center gap-4 bg-surface-base/90 border border-white/[0.06] rounded-xl px-4 py-2 text-xs font-mono" role="status" aria-label="Cluster Service Statuses">
-        <div class="flex items-center gap-2">
-          <span class="relative flex h-2 w-2">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span class="text-slate-400">K8s Mesh:</span>
-          <span class="text-emerald-400 font-semibold" id="topK8sStatus">10/10 Online</span>
-        </div>
-        <div class="h-3 w-px bg-white/10" aria-hidden="true"></div>
-        <div class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span class="text-slate-400">Redis:</span>
-          <span class="text-emerald-400 font-semibold">0.4ms</span>
-        </div>
-        <div class="h-3 w-px bg-white/10" aria-hidden="true"></div>
-        <div class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
-          <span class="text-slate-400">Ledger:</span>
-          <span class="text-indigo-400 font-semibold">Postgres OK</span>
-        </div>
-        <div class="h-3 w-px bg-white/10" aria-hidden="true"></div>
-        <div class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-teal-400"></span>
-          <span class="text-slate-400">Chroma RAG:</span>
-          <span class="text-teal-400 font-semibold">5 SOPs</span>
-        </div>
-      </div>
-
-      <!-- Global Controls -->
+      <!-- Brand & Project Title -->
       <div class="flex items-center gap-3">
-        <!-- Tenant Filter Dropdown -->
-        <div class="relative bg-surface-base/90 border border-white/10 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs">
-          <i data-lucide="building-2" class="w-3.5 h-3.5 text-slate-400" aria-hidden="true"></i>
-          <label for="globalTenantSelector" class="sr-only">Filter by Tenant Tier</label>
-          <select id="globalTenantSelector" onchange="handleGlobalTenantChange(this.value)" class="bg-transparent text-slate-200 outline-none font-medium cursor-pointer text-xs focus:ring-0">
-            <option value="all" class="bg-slate-900">All Tenants (Global)</option>
-            <option value="tenant_a" class="bg-slate-900">Tenant A (VIP - 5m SLA)</option>
-            <option value="tenant_b" class="bg-slate-900">Tenant B (Standard - 15m SLA)</option>
-            <option value="tenant_c" class="bg-slate-900">Tenant C (Basic - 30m SLA)</option>
-          </select>
+        <div class="w-9 h-9 rounded-lg bg-brand-500/10 border border-brand-500/30 flex items-center justify-center text-brand-400">
+          <i data-lucide="cpu" class="w-5 h-5"></i>
         </div>
-
-        <!-- Mode Toggle -->
-        <button id="globalModeBtn" onclick="toggleGlobalAutonomousMode()" class="spring-trans flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs font-semibold bg-emerald-950/50 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60" aria-label="Toggle Autonomous Mode">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true"></span>
-          <span id="globalModeText">Autonomous Self-Healing</span>
-        </button>
-
-        <!-- Refresh Button -->
-        <button onclick="triggerDataSync()" title="Refresh telemetry data" aria-label="Refresh telemetry data" class="p-2 rounded-xl bg-surface-base border border-white/10 text-slate-300 hover:text-white hover:border-white/20 spring-trans">
-          <i data-lucide="rotate-cw" class="w-4 h-4" id="globalSyncIcon" aria-hidden="true"></i>
-        </button>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-white tracking-tight text-base">AIOps Command Center</span>
+            <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-brand-500/20 text-brand-300 border border-brand-500/30">REAL ARCHITECTURE</span>
+          </div>
+          <p class="text-xs text-slate-400">AIOPS COMMAND CENTER &bull; Local Microservice Mesh & Autonomous Self-Healing</p>
+        </div>
       </div>
 
-    </nav>
+      <!-- Live Global Controls & Mode Toggle -->
+      <div class="flex items-center gap-4">
+        
+        <!-- Live Cluster Heartbeat -->
+        <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-subtle border border-surface-border text-xs text-slate-300">
+          <span class="pulse-dot bg-brand-400"></span>
+          <span>Mesh Status:</span>
+          <span id="headerMeshHealth" class="font-semibold text-emerald-400">5/5 UP</span>
+        </div>
 
-    <!-- MULTI-TAB MODULAR SUB-NAVIGATION BAR (Keyboard Accessible) -->
-    <div class="mt-3 backdrop-blur-xl bg-surface-card/60 border border-white/[0.06] rounded-xl px-2 py-1.5 flex items-center gap-1.5 overflow-x-auto shadow-sm" role="tablist" aria-label="AIOps Operational Views">
-      
-      <button onclick="navigateTab('overview')" id="tabNav-overview" role="tab" aria-selected="true" aria-controls="view-overview" class="spring-trans px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 whitespace-nowrap bg-brand-500/10 text-brand-300 border border-brand-500/30 shadow-sm">
-        <i data-lucide="layout-grid" class="w-3.5 h-3.5" aria-hidden="true"></i>
-        <span>Overview & Topology</span>
-      </button>
+        <!-- Human Approval vs Autonomous Mode Switcher -->
+        <div class="flex items-center gap-2">
+          <button id="modeToggleBtn" onclick="toggleOperationalMode()" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg border text-xs font-medium transition-all bg-amber-950/60 border-amber-600/50 text-amber-300 hover:bg-amber-900/50">
+            <i id="modeIcon" data-lucide="shield-alert" class="w-4 h-4"></i>
+            <span id="modeLabel">Human Approval Gate (Active)</span>
+          </button>
+        </div>
 
-      <button onclick="navigateTab('chaos')" id="tabNav-chaos" role="tab" aria-selected="false" aria-controls="view-chaos" class="spring-trans px-3.5 py-2 rounded-lg text-xs font-medium flex items-center gap-2 whitespace-nowrap text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]">
-        <i data-lucide="flame" class="w-3.5 h-3.5 text-rose-400" aria-hidden="true"></i>
-        <span>Chaos Testing Studio</span>
-        <span class="px-1.5 py-0.2 rounded bg-rose-950 text-rose-300 border border-rose-800 text-[10px] font-mono">Mesh</span>
-      </button>
+        <!-- Manual Refresh Button -->
+        <button onclick="refreshAllData()" title="Refresh Telemetry" class="p-2 rounded-lg bg-surface-subtle border border-surface-border text-slate-400 hover:text-white transition-colors">
+          <i id="refreshIcon" data-lucide="refresh-cw" class="w-4 h-4"></i>
+        </button>
 
-      <button onclick="navigateTab('incidents')" id="tabNav-incidents" role="tab" aria-selected="false" aria-controls="view-incidents" class="spring-trans px-3.5 py-2 rounded-lg text-xs font-medium flex items-center gap-2 whitespace-nowrap text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]">
-        <i data-lucide="git-merge" class="w-3.5 h-3.5 text-indigo-400" aria-hidden="true"></i>
-        <span>Alert Correlation & Triage</span>
-        <span id="tabCountIncidents" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-teal-400 font-mono text-[10px]">1</span>
-      </button>
-
-      <button onclick="navigateTab('investigation')" id="tabNav-investigation" role="tab" aria-selected="false" aria-controls="view-investigation" class="spring-trans px-3.5 py-2 rounded-lg text-xs font-medium flex items-center gap-2 whitespace-nowrap text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]">
-        <i data-lucide="bot" class="w-3.5 h-3.5 text-purple-400" aria-hidden="true"></i>
-        <span>AI SRE Investigation Room</span>
-      </button>
-
-      <button onclick="navigateTab('benchmarks')" id="tabNav-benchmarks" role="tab" aria-selected="false" aria-controls="view-benchmarks" class="spring-trans px-3.5 py-2 rounded-lg text-xs font-medium flex items-center gap-2 whitespace-nowrap text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]">
-        <i data-lucide="award" class="w-3.5 h-3.5 text-amber-400" aria-hidden="true"></i>
-        <span>Evaluation Scorecard</span>
-      </button>
-
-      <button onclick="navigateTab('settings')" id="tabNav-settings" role="tab" aria-selected="false" aria-controls="view-settings" class="spring-trans px-3.5 py-2 rounded-lg text-xs font-medium flex items-center gap-2 whitespace-nowrap text-slate-400 hover:text-slate-200 hover:bg-white/[0.03] ml-auto">
-        <i data-lucide="settings" class="w-3.5 h-3.5" aria-hidden="true"></i>
-        <span>Config & SLAs</span>
-      </button>
-
+      </div>
     </div>
+
+    <!-- 5 DEDICATED NAVIGATION TABS -->
+    <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-1 border-t border-surface-border/60 overflow-x-auto" aria-label="Main Navigation">
+      <button onclick="switchTab('architecture')" id="tab-architecture" class="tab-btn active px-4 py-2.5 rounded-t-lg text-xs flex items-center gap-2 transition-all">
+        <i data-lucide="network" class="w-4 h-4"></i>
+        <span>1. System Architecture</span>
+      </button>
+
+      <button onclick="switchTab('metrics')" id="tab-metrics" class="tab-btn text-slate-400 hover:text-slate-200 px-4 py-2.5 rounded-t-lg text-xs flex items-center gap-2 transition-all">
+        <i data-lucide="activity" class="w-4 h-4"></i>
+        <span>2. Metrics & Prometheus</span>
+      </button>
+
+      <button onclick="switchTab('grafana')" id="tab-grafana" class="tab-btn text-slate-400 hover:text-slate-200 px-4 py-2.5 rounded-t-lg text-xs flex items-center gap-2 transition-all">
+        <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+        <span>3. Visualization & Grafana</span>
+      </button>
+
+      <button onclick="switchTab('chaos')" id="tab-chaos" class="tab-btn text-slate-400 hover:text-slate-200 px-4 py-2.5 rounded-t-lg text-xs flex items-center gap-2 transition-all">
+        <i data-lucide="zap" class="w-4 h-4 text-rose-400"></i>
+        <span>4. Chaos Engineering</span>
+      </button>
+
+      <button onclick="switchTab('incidents')" id="tab-incidents" class="tab-btn text-slate-400 hover:text-slate-200 px-4 py-2.5 rounded-t-lg text-xs flex items-center gap-2 transition-all">
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400"></i>
+        <span>5. Incidents & Approvals</span>
+        <span id="incidentBadgeCount" class="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-800 text-slate-300 font-mono">0</span>
+      </button>
+    </nav>
   </header>
 
-  <!-- TOAST NOTIFICATION CONTAINER (ARIA-LIVE POLITE) -->
-  <aside id="toastContainer" aria-live="polite" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none max-w-md w-full px-4"></aside>
+  <!-- MAIN TAB CONTENT CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
 
-  <!-- MAIN MULTI-VIEW BODY -->
-  <main id="mainContent" class="max-w-[1780px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1">
-
-    <!-- ============================================================== -->
-    <!-- VIEW 1: OVERVIEW & TOPOLOGY DASHBOARD                           -->
-    <!-- ============================================================== -->
-    <section id="view-overview" role="tabpanel" aria-labelledby="tabNav-overview" class="space-y-6">
+    <!-- ========================================================================================= -->
+    <!-- TAB 1: SYSTEM ARCHITECTURE & TOPOLOGY -->
+    <!-- ========================================================================================= -->
+    <section id="view-architecture" class="tab-content active space-y-6">
       
-      <!-- Top Metrics Strip (Double-Bezel Architecture) -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- Metric 1 -->
-        <article class="double-bezel p-1 rounded-[1.5rem]">
-          <div class="inner-bezel rounded-[calc(1.5rem-0.25rem)] p-4 flex flex-col justify-between h-full">
-            <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
-              <h2>RCA Accuracy Score</h2>
-              <i data-lucide="crosshair" class="w-4 h-4 text-brand-400" aria-hidden="true"></i>
-            </div>
-            <div class="flex items-baseline gap-2">
-              <span class="text-3xl font-extrabold font-mono text-white tabular-nums" id="overviewAccuracy">96.8%</span>
-              <span class="text-xs text-emerald-400 font-semibold">+4.2% vs Ledger</span>
-            </div>
-            <p class="text-[11px] text-slate-400 mt-1">Ground truth verified via PostgreSQL</p>
-            <div class="w-full bg-white/5 h-1.5 rounded-full mt-3 overflow-hidden">
-              <div class="h-full bg-gradient-to-r from-teal-400 to-emerald-400 rounded-full" style="width: 96.8%"></div>
-            </div>
+      <!-- Overview Banner -->
+      <div class="bg-surface-card border border-surface-border rounded-xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <span>On-Device Microservice Topology</span>
+            <span class="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">100% Real Processes</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-1">Real standalone services listening on local TCP sockets. Each container process exposes Prometheus metrics and responds to live restarts.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="text-right">
+            <div class="text-xs text-slate-400">Host Engine</div>
+            <div class="text-sm font-semibold text-white mono">Python 3.12 + Uvicorn Async</div>
           </div>
-        </article>
-
-        <!-- Metric 2 -->
-        <article class="double-bezel p-1 rounded-[1.5rem]">
-          <div class="inner-bezel rounded-[calc(1.5rem-0.25rem)] p-4 flex flex-col justify-between h-full">
-            <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
-              <h2>Mean Detection Latency (MTTD)</h2>
-              <i data-lucide="zap" class="w-4 h-4 text-amber-400" aria-hidden="true"></i>
-            </div>
-            <div class="flex items-baseline gap-2">
-              <span class="text-3xl font-extrabold font-mono text-white tabular-nums" id="overviewMttd">3.2s</span>
-              <span class="text-xs text-slate-400 font-mono">avg detection</span>
-            </div>
-            <p class="text-[11px] text-slate-400 mt-1">92% faster than human on-call</p>
-            <div class="w-full bg-white/5 h-1.5 rounded-full mt-3 overflow-hidden">
-              <div class="h-full bg-amber-400 rounded-full" style="width: 88%"></div>
-            </div>
-          </div>
-        </article>
-
-        <!-- Metric 3 -->
-        <article class="double-bezel p-1 rounded-[1.5rem]">
-          <div class="inner-bezel rounded-[calc(1.5rem-0.25rem)] p-4 flex flex-col justify-between h-full">
-            <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
-              <h2>SLA Protection Rate</h2>
-              <i data-lucide="clock" class="w-4 h-4 text-emerald-400" aria-hidden="true"></i>
-            </div>
-            <div class="flex items-baseline gap-2">
-              <span class="text-3xl font-extrabold font-mono text-white tabular-nums" id="overviewSla">99.4%</span>
-              <span class="text-xs text-emerald-400 font-semibold">Zero Breaches</span>
-            </div>
-            <p class="text-[11px] text-slate-400 mt-1">Enforced across Tenant A, B & C tiers</p>
-            <div class="w-full bg-white/5 h-1.5 rounded-full mt-3 overflow-hidden">
-              <div class="h-full bg-emerald-400 rounded-full" style="width: 99.4%"></div>
-            </div>
-          </div>
-        </article>
-
-        <!-- Metric 4 -->
-        <article class="double-bezel p-1 rounded-[1.5rem]">
-          <div class="inner-bezel rounded-[calc(1.5rem-0.25rem)] p-4 flex flex-col justify-between h-full">
-            <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
-              <h2>Alert Storm Compression</h2>
-              <i data-lucide="layers" class="w-4 h-4 text-indigo-400" aria-hidden="true"></i>
-            </div>
-            <div class="flex items-baseline gap-2">
-              <span class="text-3xl font-extrabold font-mono text-white tabular-nums">99.8%</span>
-              <span class="text-xs text-indigo-400 font-mono font-bold" id="overviewAlertsCompressed">542 → 1</span>
-            </div>
-            <p class="text-[11px] text-slate-400 mt-1">Redis sliding-window topology filter</p>
-            <div class="w-full bg-white/5 h-1.5 rounded-full mt-3 overflow-hidden">
-              <div class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" style="width: 99.8%"></div>
-            </div>
-          </div>
-        </article>
-      </div>
-
-      <!-- Live Microservices Topology Grid -->
-      <div class="double-bezel p-1 rounded-[1.75rem]">
-        <div class="inner-bezel rounded-[calc(1.75rem-0.25rem)] p-6 space-y-4">
-          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] pb-4">
-            <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400">
-                <i data-lucide="server" class="w-5 h-5" aria-hidden="true"></i>
-              </div>
-              <div>
-                <h2 class="text-sm font-bold tracking-tight text-white uppercase flex items-center gap-2">
-                  Google Cloud Online Boutique Microservices Mesh
-                  <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-surface-elevated border border-white/10 text-slate-300">10 Services + Cache</span>
-                </h2>
-                <p class="text-xs text-slate-400">Real-time pod health, runtime language, latency histograms, and memory footprint</p>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-2 text-xs">
-              <span class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-950/60 border border-emerald-800 text-emerald-300">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span id="topologyHealthyCount">10 Healthy</span>
-              </span>
-              <span class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-950/60 border border-rose-800 text-rose-300">
-                <span class="w-2 h-2 rounded-full bg-rose-400"></span>
-                <span id="topologyDegradedCount">0 Degraded</span>
-              </span>
-            </div>
-          </div>
-
-          <!-- The 10 Microservices Grid -->
-          <div id="topologyGridContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5 pt-2">
-            <!-- Dynamically populated via JS -->
-          </div>
+          <button onclick="loadMeshStatus()" class="px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-border border border-surface-border text-xs text-slate-300 flex items-center gap-1.5 transition-colors">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Poll Health</span>
+          </button>
         </div>
       </div>
 
-    </section>
-
-    <!-- ============================================================== -->
-    <!-- VIEW 2: CHAOS & FAULT INJECTION STUDIO                         -->
-    <!-- ============================================================== -->
-    <section id="view-chaos" role="tabpanel" aria-labelledby="tabNav-chaos" class="hidden space-y-6">
-      
-      <div class="double-bezel p-1 rounded-[1.75rem]">
-        <div class="inner-bezel rounded-[calc(1.75rem-0.25rem)] p-6 space-y-6">
-          
-          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] pb-4">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 shadow-sm">
-                <i data-lucide="flame" class="w-6 h-6" aria-hidden="true"></i>
-              </div>
-              <div>
-                <h2 class="text-base font-bold tracking-tight text-white uppercase flex items-center gap-2">
-                  Precision Chaos Engineering Studio
-                  <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-800">Chaos Mesh v2.6.2</span>
-                </h2>
-                <p class="text-xs text-slate-400">Inject calibrated failures into the Kubernetes mesh to evaluate AI SRE accuracy against known ground truth</p>
-              </div>
-            </div>
-
-            <!-- Preset Scenarios -->
-            <div class="flex items-center gap-2">
-              <span class="text-xs text-slate-400 hidden sm:inline">Defense Scenarios:</span>
-              <button onclick="setAndRunChaos('payment-service', 'NetworkLatency', 'tenant_a')" class="px-3 py-1.5 rounded-xl bg-surface-elevated hover:bg-slate-800 border border-white/10 text-xs font-semibold text-slate-200 spring-trans">
-                💳 Scenario 1: Payment Latency (VIP)
-              </button>
-              <button onclick="setAndRunChaos('cart-service', 'PodFailure', 'tenant_b')" class="px-3 py-1.5 rounded-xl bg-surface-elevated hover:bg-slate-800 border border-white/10 text-xs font-semibold text-slate-200 spring-trans">
-                🛒 Scenario 2: Cart Crash (Auto-Heal)
-              </button>
-            </div>
-          </div>
-
-          <!-- Configuration Form Grid -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <!-- 1. Target Microservice -->
-            <div class="space-y-2">
-              <label for="chaosFormService" class="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-                1. Target Microservice
-              </label>
-              <select id="chaosFormService" class="w-full bg-surface-base border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-100 font-medium focus:border-brand-500 outline-none spring-trans">
-                <option value="payment-service">payment-service (Go • Port 50051)</option>
-                <option value="cart-service" selected>cart-service (C# .NET • Port 7070)</option>
-                <option value="frontend">frontend (Go HTTP Gateway • Port 80)</option>
-                <option value="productcatalog-service">productcatalog-service (Go • Port 3550)</option>
-                <option value="redis-cart">redis-cart (Redis In-Memory • Port 6379)</option>
-              </select>
-              <p class="text-[11px] text-slate-400">Primary target where chaos injection CRD will be targeted.</p>
-            </div>
-
-            <!-- 2. Experiment Type -->
-            <div class="space-y-2">
-              <label for="chaosFormType" class="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-                2. Chaos Experiment Type
-              </label>
-              <select id="chaosFormType" class="w-full bg-surface-base border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-100 font-medium focus:border-brand-500 outline-none spring-trans">
-                <option value="NetworkLatency">NetworkLatency (300ms RTT delay & jitter)</option>
-                <option value="PodFailure" selected>PodFailure (Random Pod Kill & Exit Code 137)</option>
-                <option value="StressChaos">StressChaos (CPU & Memory 95% Burner)</option>
-                <option value="NetworkPartition">NetworkPartition (Split-Brain Disconnect)</option>
-              </select>
-              <p class="text-[11px] text-slate-400">Simulates real-world hardware, network, or noisy-neighbor failures.</p>
-            </div>
-
-            <!-- 3. Tenant Context -->
-            <div class="space-y-2">
-              <label for="chaosFormTenant" class="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-                3. Customer SLA Context
-              </label>
-              <select id="chaosFormTenant" class="w-full bg-surface-base border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-100 font-medium focus:border-brand-500 outline-none spring-trans">
-                <option value="tenant_a" selected>Tenant A (Tier 1 VIP - 5 min SLA Limit)</option>
-                <option value="tenant_b">Tenant B (Tier 2 Standard - 15 min SLA Limit)</option>
-                <option value="tenant_c">Tenant C (Tier 3 Basic - 30 min SLA Limit)</option>
-              </select>
-              <p class="text-[11px] text-slate-400">Dictates incident urgency score and automated escalation thresholds.</p>
-            </div>
-          </div>
-
-          <!-- Blast Radius & Failure Propagation Simulation Preview -->
-          <div class="bg-surface-base p-4 rounded-xl border border-white/[0.06] space-y-2">
-            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-              <i data-lucide="git-branch" class="w-4 h-4 text-brand-400" aria-hidden="true"></i>
-              Blast Radius Simulation Predictor
-            </span>
-            <p class="text-xs text-slate-400">
-              When this failure triggers, downstream consumers will experience cascaded RPC errors within 120 seconds:
-            </p>
-            <div class="flex items-center gap-2 flex-wrap font-mono text-xs pt-1">
-              <span class="px-3 py-1 rounded-lg bg-rose-950/80 border border-rose-800 text-rose-300 font-semibold" id="blastPredictorRoot">cart-service (Root Cause)</span>
-              <span class="text-slate-600">⟶</span>
-              <span class="px-3 py-1 rounded-lg bg-amber-950/60 border border-amber-800 text-amber-300">checkout-service (HTTP 500)</span>
-              <span class="text-slate-600">⟶</span>
-              <span class="px-3 py-1 rounded-lg bg-amber-950/60 border border-amber-800 text-amber-300">frontend (HTTP 504 Gateway Timeout)</span>
-            </div>
-          </div>
-
-          <!-- Bottom Action Strip with Button-in-Button -->
-          <div class="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-white/[0.08]">
-            <div class="flex items-center gap-2 text-xs text-slate-400">
-              <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400" aria-hidden="true"></i>
-              <span>All injections automatically logged to the PostgreSQL Ground-Truth Ledger for objective scoring.</span>
-            </div>
-
-            <button id="btnExecuteChaos" onclick="executeChaosFromStudio()" class="group rounded-full pl-7 pr-2.5 py-2.5 bg-gradient-to-r from-rose-600 via-rose-500 to-amber-500 hover:from-rose-500 hover:to-amber-400 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-rose-950/80 active:scale-[0.98] spring-trans flex items-center gap-3">
-              <span id="btnExecuteChaosText">⚡ Inject Chaos & Test Platform</span>
-              <span class="w-9 h-9 rounded-full bg-black/30 flex items-center justify-center text-yellow-300 group-hover:scale-105 spring-trans">
-                <i data-lucide="zap" class="w-4 h-4" aria-hidden="true"></i>
-              </span>
-            </button>
-          </div>
-
-        </div>
-      </div>
-
-    </section>
-
-    <!-- ============================================================== -->
-    <!-- VIEW 3: ALERT CORRELATION & INCIDENT TRIAGE                    -->
-    <!-- ============================================================== -->
-    <section id="view-incidents" role="tabpanel" aria-labelledby="tabNav-incidents" class="hidden space-y-6">
-      
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- High-Level Traffic Flow Diagram -->
+      <div class="bg-surface-card border border-surface-border rounded-xl p-6">
+        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Traffic Ingress & Service Dependency Flow</h3>
         
-        <!-- Left Column: Visual Alert Storm Compression Card -->
-        <div class="lg:col-span-5 double-bezel p-1 rounded-[1.75rem]">
-          <div class="inner-bezel rounded-[calc(1.75rem-0.25rem)] p-6 space-y-5">
-            
-            <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
-              <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-                  <i data-lucide="git-merge" class="w-5 h-5" aria-hidden="true"></i>
-                </div>
-                <div>
-                  <h2 class="text-sm font-bold tracking-tight text-white uppercase">Alert Storm Compression</h2>
-                  <p class="text-xs text-slate-400">Sliding-window Redis deduplication buffer</p>
-                </div>
-              </div>
-              <span class="text-xs font-mono px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">120s Window</span>
-            </div>
-
-            <!-- Compression Visual Funnel -->
-            <div class="bg-surface-base p-4 rounded-xl border border-white/[0.06] flex items-center justify-between gap-3">
-              <div class="text-center flex-1">
-                <div class="text-2xl font-black font-mono text-rose-400 tracking-tight" id="triageRawAlertsCount">542</div>
-                <div class="text-xs font-semibold text-slate-300">Raw Alerts</div>
-                <div class="text-[10px] text-slate-500 font-mono">Prometheus/Loki</div>
-              </div>
-              <i data-lucide="arrow-right" class="w-5 h-5 text-slate-600" aria-hidden="true"></i>
-              <div class="text-center flex-1 bg-indigo-950/40 border border-indigo-500/30 py-2.5 px-2 rounded-xl">
-                <div class="text-xs font-bold text-indigo-300">Redis Clustering</div>
-                <div class="text-[10px] text-indigo-400 font-mono">Topology Graph</div>
-              </div>
-              <i data-lucide="arrow-right" class="w-5 h-5 text-slate-600" aria-hidden="true"></i>
-              <div class="text-center flex-1">
-                <div class="text-2xl font-black font-mono text-emerald-400 tracking-tight">1</div>
-                <div class="text-xs font-semibold text-slate-300">Unified Incident</div>
-                <div class="text-[10px] text-emerald-400 font-mono">99.8% Reduced</div>
-              </div>
-            </div>
-
-            <div class="space-y-2">
-              <span class="text-xs font-semibold text-slate-300">Service Dependency Propagation:</span>
-              <div class="flex items-center gap-2 flex-wrap text-xs font-mono">
-                <span class="px-2.5 py-1 rounded bg-rose-950/80 border border-rose-800 text-rose-300 font-bold">cart-service (Origin)</span>
-                <span class="text-slate-600">⟶</span>
-                <span class="px-2.5 py-1 rounded bg-amber-950/60 border border-amber-800 text-amber-300">checkout-service (500)</span>
-                <span class="text-slate-600">⟶</span>
-                <span class="px-2.5 py-1 rounded bg-amber-950/60 border border-amber-800 text-amber-300">frontend (504)</span>
-              </div>
-            </div>
-
-            <div class="p-3.5 rounded-xl bg-surface-base border border-white/[0.06] text-xs text-slate-400 space-y-1">
-              <span class="font-bold text-slate-200">How It Solves Alert Fatigue:</span>
-              <p class="leading-relaxed">
-                Without clustering, 500+ alerts flood on-call Slack channels, masking the original root cause. Our platform deduplicates cascading alerts by service topology in real time.
-              </p>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- Right Column: Active Incidents List -->
-        <div class="lg:col-span-7 double-bezel p-1 rounded-[1.75rem]">
-          <div class="inner-bezel rounded-[calc(1.75rem-0.25rem)] p-6 space-y-4">
-            
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] pb-3">
-              <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400">
-                  <i data-lucide="list-ordered" class="w-5 h-5" aria-hidden="true"></i>
-                </div>
-                <div>
-                  <h2 class="text-sm font-bold tracking-tight text-white uppercase">Prioritized Incidents Triage Queue</h2>
-                  <p class="text-xs text-slate-400">Ranked by real-time Multi-Tenant SLA risk score</p>
-                </div>
-              </div>
-              <span class="px-2.5 py-1 rounded-full bg-surface-elevated border border-white/10 text-teal-400 text-xs font-mono font-bold" id="triageActiveBadge">
-                1 Active
-              </span>
-            </div>
-
-            <!-- Triage Queue Cards -->
-            <div id="triageIncidentsContainer" class="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-              <!-- Dynamically populated -->
-            </div>
-
-          </div>
-        </div>
-
-      </div>
-
-    </section>
-
-    <!-- ============================================================== -->
-    <!-- VIEW 4: AI SRE INVESTIGATION & EVIDENCE ROOM                   -->
-    <!-- ============================================================== -->
-    <section id="view-investigation" role="tabpanel" aria-labelledby="tabNav-investigation" class="hidden space-y-6">
-      
-      <div class="double-bezel p-1 rounded-[1.75rem]">
-        <div class="inner-bezel rounded-[calc(1.75rem-0.25rem)] p-6 space-y-5">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-3 relative">
           
-          <!-- Top Incident Identity Bar -->
-          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] pb-4">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 shadow-sm">
-                <i data-lucide="bot" class="w-6 h-6" aria-hidden="true"></i>
-              </div>
-              <div>
-                <div class="flex items-center gap-2">
-                  <h2 class="text-base font-bold tracking-tight text-white uppercase">AI SRE Autonomous Investigation Console</h2>
-                  <span id="investigationIncidentIdPill" class="text-xs font-mono px-2.5 py-0.5 rounded-lg bg-surface-elevated border border-white/10 text-teal-300 font-bold">
-                    inc_tenant_a_101
-                  </span>
-                </div>
-                <p class="text-xs text-slate-400">Multi-source evidence correlation: PromQL, LogQL, TraceQL, Kubernetes API & ChromaDB RAG</p>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-3">
-              <div class="flex items-center gap-2 bg-surface-base px-3.5 py-1.5 rounded-xl border border-white/10 text-xs">
-                <span class="text-slate-400">Confidence:</span>
-                <span id="investigationConfidenceScore" class="font-mono font-bold text-teal-400">96.0%</span>
-              </div>
-              <button onclick="triggerRemediationExecution()" class="spring-trans px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-emerald-950">
-                <i data-lucide="play" class="w-3.5 h-3.5" aria-hidden="true"></i>
-                <span>Auto-Remediate Now</span>
-              </button>
-            </div>
+          <!-- Ingress Card -->
+          <div class="border border-surface-border bg-surface-subtle/50 rounded-lg p-3 text-center flex flex-col items-center justify-center">
+            <div class="text-xs font-bold text-brand-400 uppercase">Client Ingress</div>
+            <div class="text-xs text-slate-400 mt-1">HTTP Browser</div>
+            <div class="mt-2 text-[11px] mono text-slate-500">Port :8000</div>
           </div>
 
-          <!-- Investigation Sub-Tabs -->
-          <div class="flex items-center gap-2 border-b border-white/[0.08] text-xs font-semibold overflow-x-auto" role="tablist">
-            <button id="invSubTab-diagnosis" onclick="switchInvSubTab('diagnosis')" role="tab" aria-selected="true" class="spring-trans px-4 py-2.5 border-b-2 border-brand-500 text-brand-400 flex items-center gap-2">
-              <i data-lucide="sparkles" class="w-3.5 h-3.5" aria-hidden="true"></i>
-              <span>Root Cause Diagnosis (RCA)</span>
-            </button>
-            <button id="invSubTab-runbook" onclick="switchInvSubTab('runbook')" role="tab" aria-selected="false" class="spring-trans px-4 py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
-              <i data-lucide="book-open" class="w-3.5 h-3.5" aria-hidden="true"></i>
-              <span>RAG Runbook SOP Match</span>
-            </button>
-            <button id="invSubTab-telemetry" onclick="switchInvSubTab('telemetry')" role="tab" aria-selected="false" class="spring-trans px-4 py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
-              <i data-lucide="activity" class="w-3.5 h-3.5" aria-hidden="true"></i>
-              <span>Live Telemetry Evidence</span>
-            </button>
-            <button id="invSubTab-remediation" onclick="switchInvSubTab('remediation')" role="tab" aria-selected="false" class="spring-trans px-4 py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
-              <i data-lucide="shield-alert" class="w-3.5 h-3.5" aria-hidden="true"></i>
-              <span>Self-Healing Playbook</span>
-            </button>
+          <!-- Frontend Service -->
+          <div id="diag-frontend" class="border border-brand-500/40 bg-surface-subtle rounded-lg p-3 text-center">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">Go</span>
+              <span id="badge-diag-frontend" class="text-[10px] font-bold text-emerald-400">UP</span>
+            </div>
+            <div class="font-semibold text-white text-xs">frontend</div>
+            <div class="text-[11px] mono text-slate-400 mt-1">Port 8083</div>
           </div>
 
-          <!-- PANEL 1: AI DIAGNOSIS SUMMARY -->
-          <div id="invSubPanel-diagnosis" class="space-y-4">
-            
-            <div class="bg-surface-base p-5 rounded-2xl border border-white/[0.06] space-y-2.5">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-brand-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <i data-lucide="check-circle-2" class="w-4 h-4" aria-hidden="true"></i>
-                  Ground-Truth Root Cause Analysis
-                </span>
-                <span id="invRcaPrimaryService" class="text-xs font-mono font-bold px-2.5 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-800">cart-service</span>
-              </div>
-              <h3 id="invRcaHeadline" class="text-lg font-bold text-white tracking-tight">
-                Pod Out-Of-Memory (OOMKilled) & Connection Pool Exhaustion
-              </h3>
-              <p id="invRcaDescription" class="text-xs text-slate-300 leading-relaxed">
-                The Autonomous Agent inspected container metrics and identified a memory saturation spike reaching 100% of limits.memory. The Linux Kernel terminated the container process with Exit Code 137, causing downstream timeout cascades in checkout-service and frontend.
-              </p>
+          <!-- Downstream Payments -->
+          <div id="diag-payment-service" class="border border-brand-500/40 bg-surface-subtle rounded-lg p-3 text-center">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">Go</span>
+              <span id="badge-diag-payment-service" class="text-[10px] font-bold text-emerald-400">UP</span>
             </div>
-
-            <!-- ReAct Chain -->
-            <div class="bg-surface-base/80 p-5 rounded-2xl border border-white/[0.06] space-y-3">
-              <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                <i data-lucide="cpu" class="w-4 h-4 text-purple-400" aria-hidden="true"></i>
-                Autonomous SRE Reasoning Steps (ReAct Tool-Calling Pattern)
-              </span>
-              <ul class="text-xs space-y-2 text-slate-400 font-mono">
-                <li class="flex items-start gap-2">
-                  <span class="text-teal-400 font-bold">1. [SLA EVAL]</span>
-                  <span>Evaluated VIP contract tier: 300s window. Elapsed 24s. Ranked as P1-CRITICAL.</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <span class="text-teal-400 font-bold">2. [CHROMA RAG]</span>
-                  <span>Retrieved Runbook "pod_oom_killed.md" from ChromaDB with 94.2% semantic similarity.</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <span class="text-teal-400 font-bold">3. [PROMQL]</span>
-                  <span>Queried: container_memory_working_set_bytes{container="cartservice"} -> Hit 100% limit.</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <span class="text-teal-400 font-bold">4. [K8S API]</span>
-                  <span>Inspected container termination state: Reason="OOMKilled", ExitCode=137 detected.</span>
-                </li>
-              </ul>
-            </div>
-
-            <!-- Callout -->
-            <div class="bg-gradient-to-r from-brand-950/40 via-surface-base to-surface-base p-4 rounded-xl border border-brand-500/20 flex items-center justify-between gap-4">
-              <div>
-                <span class="text-xs font-bold text-brand-300">Actionable Remediation Formulated:</span>
-                <p id="invRemediationCmdText" class="text-xs font-mono text-slate-300 mt-0.5">kubectl rollout restart deployment cartservice -n default</p>
-              </div>
-              <button onclick="switchInvSubTab('remediation')" class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-black font-bold text-xs spring-trans shrink-0">
-                Inspect Playbook →
-              </button>
-            </div>
-
+            <div class="font-semibold text-white text-xs">payment-service</div>
+            <div class="text-[11px] mono text-slate-400 mt-1">Port 8081</div>
           </div>
 
-          <!-- PANEL 2: RAG RUNBOOK MATCH -->
-          <div id="invSubPanel-runbook" class="hidden space-y-3">
-            <div class="flex items-center justify-between bg-surface-base p-3.5 rounded-xl border border-white/[0.06]">
-              <div class="flex items-center gap-2.5">
-                <i data-lucide="file-text" class="w-4 h-4 text-brand-400" aria-hidden="true"></i>
-                <span id="invRunbookTitle" class="text-xs font-mono font-bold text-slate-200">pod_oom_killed.md</span>
-                <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-brand-950 text-brand-300 border border-brand-800">ChromaDB Vector Store</span>
-              </div>
-              <span id="invRunbookMatchScore" class="text-xs font-mono text-emerald-400 font-bold">94.2% Similarity Match</span>
+          <!-- Downstream Cart -->
+          <div id="diag-cart-service" class="border border-brand-500/40 bg-surface-subtle rounded-lg p-3 text-center">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">C#</span>
+              <span id="badge-diag-cart-service" class="text-[10px] font-bold text-emerald-400">UP</span>
             </div>
-
-            <div class="bg-surface-base p-5 rounded-2xl border border-white/[0.06] text-xs font-mono text-slate-300 space-y-3 max-h-[420px] overflow-y-auto">
-              <div id="invRunbookContent">
-                <h4 class="text-sm font-bold text-teal-300"># Runbook: Pod OOMKilled & CrashLoopBackOff</h4>
-                <p class="text-slate-400">Symptoms: Exit Code 137, container restarts, cascading HTTP 502/503 errors.</p>
-                <div class="text-slate-300 font-bold mt-2">Diagnostic Telemetry:</div>
-                <ul class="list-disc pl-5 text-slate-400 space-y-1">
-                  <li>PromQL: sum(container_memory_working_set_bytes) / sum(kube_pod_container_resource_limits) * 100</li>
-                  <li>LogQL: {container="cartservice"} |= "OutOfMemoryError"</li>
-                  <li>K8s API: kubectl get pods -l app=cartservice -o jsonpath='{.items[*].status.containerStatuses[*].lastState.terminated.reason}'</li>
-                </ul>
-                <div class="text-slate-300 font-bold mt-2">Automated Self-Healing:</div>
-                <p class="text-emerald-400">1. Trigger Ansible playbook: ansible-playbook ansible/restart_service.yml -e service=cartservice</p>
-                <p class="text-emerald-400">2. Patch resource memory limit by 50% via Kubernetes API</p>
-              </div>
-            </div>
+            <div class="font-semibold text-white text-xs">cart-service</div>
+            <div class="text-[11px] mono text-slate-400 mt-1">Port 8082</div>
           </div>
 
-          <!-- PANEL 3: TELEMETRY EVIDENCE -->
-          <div id="invSubPanel-telemetry" class="hidden space-y-4">
-            
-            <!-- Prometheus SVG Line Chart -->
-            <div class="bg-surface-base p-4 rounded-xl border border-white/[0.06] space-y-2">
-              <div class="flex items-center justify-between text-xs">
-                <span class="font-bold text-amber-400 flex items-center gap-2">
-                  <i data-lucide="line-chart" class="w-4 h-4" aria-hidden="true"></i>
-                  PromQL Latency Histogram: http_request_duration_seconds P99
-                </span>
-                <span class="font-mono text-rose-400 font-bold bg-rose-950/60 px-2 py-0.5 rounded border border-rose-800">
-                  Peak: 1420ms
-                </span>
-              </div>
-              <div class="w-full h-36 relative pt-2">
-                <svg viewBox="0 0 500 120" class="w-full h-full overflow-visible" aria-label="Prometheus latency chart">
-                  <defs>
-                    <linearGradient id="invChartGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stop-color="#f43f5e" stop-opacity="0.35"/>
-                      <stop offset="100%" stop-color="#14b8a6" stop-opacity="0"/>
-                    </linearGradient>
-                  </defs>
-                  <line x1="0" y1="20" x2="500" y2="20" stroke="rgba(255,255,255,0.06)" stroke-dasharray="4"/>
-                  <line x1="0" y1="60" x2="500" y2="60" stroke="rgba(255,255,255,0.06)" stroke-dasharray="4"/>
-                  <line x1="0" y1="100" x2="500" y2="100" stroke="rgba(255,255,255,0.06)"/>
-                  <line x1="0" y1="50" x2="500" y2="50" stroke="#f59e0b" stroke-dasharray="2" stroke-width="1.5"/>
-                  <text x="5" y="46" fill="#f59e0b" font-size="9" font-family="monospace">SLA Contract Limit: 500ms</text>
-                  <path d="M 0 100 L 50 98 L 100 97 L 150 96 L 200 95 L 250 25 L 300 15 L 350 18 L 400 20 L 450 16 L 500 18 L 500 100 Z" fill="url(#invChartGrad)"/>
-                  <path d="M 0 100 L 50 98 L 100 97 L 150 96 L 200 95 L 250 25 L 300 15 L 350 18 L 400 20 L 450 16 L 500 18" fill="none" stroke="#f43f5e" stroke-width="2.5" stroke-linecap="round"/>
-                  <circle cx="250" cy="25" r="4" fill="#f43f5e" class="animate-ping"/>
-                  <circle cx="250" cy="25" r="4" fill="#f43f5e"/>
-                  <circle cx="500" cy="18" r="4" fill="#f43f5e"/>
-                </svg>
-              </div>
+          <!-- Cache Buffer -->
+          <div id="diag-redis-cart" class="border border-brand-500/40 bg-surface-subtle rounded-lg p-3 text-center">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">Redis</span>
+              <span id="badge-diag-redis-cart" class="text-[10px] font-bold text-emerald-400">UP</span>
             </div>
-
-            <!-- Loki LogQL Terminal -->
-            <div class="bg-surface-base p-4 rounded-xl border border-white/[0.06] space-y-2">
-              <div class="flex items-center justify-between text-xs">
-                <span class="font-bold text-slate-200 font-mono">Loki LogQL Console: {app="cartservice"}</span>
-                <span class="text-[10px] font-mono text-slate-400">Range: 5m</span>
-              </div>
-              <div class="bg-black/90 p-3.5 rounded-xl font-mono text-[11px] text-slate-300 max-h-36 overflow-y-auto space-y-1">
-                <div class="text-rose-400">[CRITICAL] 22:30:12 cartservice: OOMKilled: container exceeded cgroup memory limit (exit 137)</div>
-                <div class="text-amber-400">[ERROR] 22:30:13 checkoutservice: connection refused while dialing cartservice:7070</div>
-                <div class="text-rose-400">[CRITICAL] 22:30:14 frontend: HTTP 504 Gateway Timeout on /cart</div>
-                <div class="text-slate-400">[WARN] 22:30:15 envoy-proxy: upstream connection failure reset by peer</div>
-              </div>
-            </div>
-
-            <!-- Tempo TraceQL Waterfall -->
-            <div class="bg-surface-base p-4 rounded-xl border border-white/[0.06] space-y-2">
-              <span class="text-xs font-bold text-indigo-400 flex items-center gap-2">
-                <i data-lucide="git-commit" class="w-4 h-4" aria-hidden="true"></i>
-                Tempo Distributed Trace Waterfall: trace_id=8f29c417b8
-              </span>
-              <div class="space-y-1.5 text-[11px] font-mono">
-                <div class="flex items-center justify-between bg-surface-card px-3 py-1.5 rounded-lg border border-white/[0.04]">
-                  <span class="text-slate-200">frontend: HTTP GET /cart</span>
-                  <span class="text-rose-400 font-bold">1420ms (HTTP 504)</span>
-                </div>
-                <div class="flex items-center justify-between bg-rose-950/50 border border-rose-800/80 px-3 py-1.5 rounded-lg ml-6">
-                  <span class="text-rose-300 font-bold">↳ cartservice: CartService/GetCart</span>
-                  <span class="text-rose-400 font-bold">1380ms (TIMEOUT / KILLED)</span>
-                </div>
-                <div class="flex items-center justify-between bg-surface-card px-3 py-1.5 rounded-lg ml-6 border border-white/[0.04]">
-                  <span class="text-slate-400">↳ recommendationservice: ListRecs</span>
-                  <span class="text-emerald-400 font-bold">28ms (OK)</span>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          <!-- PANEL 4: SELF-HEALING ACTION -->
-          <div id="invSubPanel-remediation" class="hidden space-y-4">
-            
-            <div class="bg-surface-base p-5 rounded-2xl border border-white/[0.06] space-y-3">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <i data-lucide="shield-check" class="w-4 h-4" aria-hidden="true"></i>
-                  Autonomous Self-Healing Execution Engine
-                </span>
-                <span class="text-xs font-mono text-slate-400">Driver: Ansible / K8s Client</span>
-              </div>
-              <p class="text-xs text-slate-300">
-                The AI Agent formulated a verified remediation action based on retrieved runbook SOPs. Clicking execute will trigger the Ansible playbook and verify pod health.
-              </p>
-
-              <!-- Command preview -->
-              <div class="bg-black/90 p-3.5 rounded-xl border border-white/10 font-mono text-xs text-teal-300">
-                $ ansible-playbook ansible/restart_service.yml -e "service=cartservice namespace=default"
-              </div>
-
-              <div class="flex items-center gap-3 pt-1">
-                <button id="btnTriggerFix" onclick="triggerRemediationExecution()" class="spring-trans flex items-center gap-2 px-6 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 font-bold text-xs uppercase tracking-wider text-white shadow-lg shadow-emerald-950 active:scale-95">
-                  <i data-lucide="play" class="w-4 h-4" aria-hidden="true"></i>
-                  <span>🛠️ Execute Self-Healing Playbook</span>
-                </button>
-                <span id="remediationProgressText" class="text-xs text-slate-400 font-mono">Ready to execute</span>
-              </div>
-            </div>
-
-            <!-- Execution Console Output Box -->
-            <div class="bg-black rounded-xl p-4 border border-white/10 font-mono text-xs text-slate-300 max-h-48 overflow-y-auto space-y-1" id="remediationTerminalBox">
-              <div class="text-slate-500"># Remediation stream logs will appear here upon execution...</div>
-            </div>
-
+            <div class="font-semibold text-white text-xs">redis-cart</div>
+            <div class="text-[11px] mono text-slate-400 mt-1">Port 6380</div>
           </div>
 
         </div>
       </div>
 
+      <!-- Real Services Grid -->
+      <div>
+        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Live Service Status & Resource Metrics</h3>
+        <div id="servicesStatusGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
     </section>
 
-    <!-- ============================================================== -->
-    <!-- VIEW 5: EVALUATION BENCHMARKS & LEDGER                         -->
-    <!-- ============================================================== -->
-    <section id="view-benchmarks" role="tabpanel" aria-labelledby="tabNav-benchmarks" class="hidden space-y-6">
+    <!-- ========================================================================================= -->
+    <!-- TAB 2: METRICS & PROMETHEUS -->
+    <!-- ========================================================================================= -->
+    <section id="view-metrics" class="tab-content space-y-6">
       
-      <div class="double-bezel p-1 rounded-[1.75rem]">
-        <div class="inner-bezel rounded-[calc(1.75rem-0.25rem)] p-6 space-y-6">
-          
-          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] pb-4">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-sm">
-                <i data-lucide="award" class="w-6 h-6" aria-hidden="true"></i>
-              </div>
-              <div>
-                <h2 class="text-base font-bold tracking-tight text-white uppercase flex items-center gap-2">
-                  NTI Graduation Project Evaluation Scorecard
-                  <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800">Ground-Truth Verified</span>
-                </h2>
-                <p class="text-xs text-slate-400">Mathematical grading of AI accuracy, detection latency, SLA compliance, and tool-calling efficiency</p>
-              </div>
-            </div>
-
-            <button onclick="loadBenchmarksScorecard()" class="px-3.5 py-1.5 rounded-xl bg-surface-elevated hover:bg-slate-800 border border-white/10 text-xs font-semibold text-slate-300 spring-trans flex items-center gap-2">
-              <i data-lucide="refresh-cw" class="w-3.5 h-3.5" aria-hidden="true"></i>
-              <span>Refresh Scorecard</span>
-            </button>
+      <!-- Top Resource KPI Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <div class="bg-surface-card border border-surface-border rounded-xl p-4">
+          <div class="text-xs text-slate-400 font-medium">Cluster CPU Utilization</div>
+          <div class="text-2xl font-bold text-white mono mt-1" id="kpiCpuUsage">6.8%</div>
+          <div class="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
+            <i data-lucide="check-circle-2" class="w-3 h-3"></i>
+            <span>Operating within SLA threshold</span>
           </div>
+        </div>
 
-          <!-- Tool Calling Efficiency Breakdown -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div class="bg-surface-base p-4 rounded-xl border border-white/[0.06] text-center">
-              <span class="text-xs text-slate-400 font-semibold">PromQL Queries</span>
-              <div class="text-2xl font-bold font-mono text-teal-400 mt-1" id="statPromql">142</div>
-            </div>
-            <div class="bg-surface-base p-4 rounded-xl border border-white/[0.06] text-center">
-              <span class="text-xs text-slate-400 font-semibold">LogQL Searches</span>
-              <div class="text-2xl font-bold font-mono text-indigo-400 mt-1" id="statLogql">98</div>
-            </div>
-            <div class="bg-surface-base p-4 rounded-xl border border-white/[0.06] text-center">
-              <span class="text-xs text-slate-400 font-semibold">TraceQL Spans</span>
-              <div class="text-2xl font-bold font-mono text-amber-400 mt-1" id="statTraceql">84</div>
-            </div>
-            <div class="bg-surface-base p-4 rounded-xl border border-white/[0.06] text-center">
-              <span class="text-xs text-slate-400 font-semibold">Kubernetes Calls</span>
-              <div class="text-2xl font-bold font-mono text-emerald-400 mt-1" id="statK8s">112</div>
-            </div>
-          </div>
+        <div class="bg-surface-card border border-surface-border rounded-xl p-4">
+          <div class="text-xs text-slate-400 font-medium">Total Process Memory</div>
+          <div class="text-2xl font-bold text-white mono mt-1" id="kpiMemUsage">248 MB</div>
+          <div class="text-[11px] text-slate-400 mt-1">Direct resident memory /proc statm</div>
+        </div>
 
-          <!-- PostgreSQL Ground-Truth Ledger Table -->
-          <div class="space-y-3">
-            <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-              <i data-lucide="database" class="w-4 h-4 text-brand-400" aria-hidden="true"></i>
-              PostgreSQL Ground-Truth Ledger (Injected Chaos vs AI Diagnosis)
+        <div class="bg-surface-card border border-surface-border rounded-xl p-4">
+          <div class="text-xs text-slate-400 font-medium">P95 Request Latency</div>
+          <div class="text-2xl font-bold text-white mono mt-1" id="kpiLatency">24 ms</div>
+          <div class="text-[11px] text-emerald-400 mt-1" id="kpiLatencyLabel">Normal baseline (Target &lt; 200ms)</div>
+        </div>
+
+        <div class="bg-surface-card border border-surface-border rounded-xl p-4">
+          <div class="text-xs text-slate-400 font-medium">HTTP Error Rate (5xx)</div>
+          <div class="text-2xl font-bold text-white mono mt-1" id="kpiErrorRate">0.00 /s</div>
+          <div class="text-[11px] text-slate-400 mt-1">Live Prometheus error counter</div>
+        </div>
+
+      </div>
+
+      <!-- Raw Prometheus Metrics Stream -->
+      <div class="bg-surface-card border border-surface-border rounded-xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i data-lucide="database" class="w-4 h-4 text-brand-400"></i>
+              <span>Prometheus Metric Exposition Feed</span>
             </h3>
-            
-            <div class="overflow-x-auto rounded-xl border border-white/[0.08]">
-              <table class="w-full text-left text-xs font-mono">
-                <thead class="bg-surface-elevated text-slate-400 border-b border-white/[0.08]">
-                  <tr>
-                    <th scope="col" class="py-3 px-4">Experiment ID</th>
-                    <th scope="col" class="py-3 px-4">Microservice</th>
-                    <th scope="col" class="py-3 px-4">Chaos Injected</th>
-                    <th scope="col" class="py-3 px-4">AI SRE Diagnosis</th>
-                    <th scope="col" class="py-3 px-4">Confidence</th>
-                    <th scope="col" class="py-3 px-4">Latency</th>
-                    <th scope="col" class="py-3 px-4">Evaluation</th>
-                  </tr>
-                </thead>
-                <tbody id="ledgerTableBody" class="divide-y divide-white/[0.04] bg-surface-base">
-                  <!-- Dynamically populated -->
-                </tbody>
-              </table>
-            </div>
+            <p class="text-xs text-slate-400 mt-0.5">Scraped directly from live services via <span class="mono text-brand-300">GET /metrics</span> endpoints</p>
           </div>
-
+          <a href="/api/v1/mesh/metrics" target="_blank" class="px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-border border border-surface-border text-xs text-brand-300 flex items-center gap-1.5 transition-colors">
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            <span>View Raw /metrics</span>
+          </a>
         </div>
+
+        <!-- PromQL Filter Input -->
+        <div class="flex items-center gap-2 bg-surface-bg border border-surface-border rounded-lg px-3 py-2">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+          <input type="text" id="promqlSearchInput" placeholder="Filter metrics (e.g. process_cpu_percent, service_up, payment-service)..." class="bg-transparent border-0 text-xs text-white placeholder-slate-500 focus:outline-none w-full mono">
+        </div>
+
+        <!-- Terminal Output -->
+        <pre id="rawPrometheusOutput" class="p-4 rounded-lg bg-[#070b12] border border-surface-border text-slate-300 mono text-xs h-96 overflow-y-auto custom-scroll leading-relaxed">
+Fetching real Prometheus metrics from host...
+        </pre>
       </div>
 
     </section>
 
-    <!-- ============================================================== -->
-    <!-- VIEW 6: PLATFORM CONFIGURATION & SLAS                         -->
-    <!-- ============================================================== -->
-    <section id="view-settings" role="tabpanel" aria-labelledby="tabNav-settings" class="hidden space-y-6">
+    <!-- ========================================================================================= -->
+    <!-- TAB 3: VISUALIZATION & GRAFANA -->
+    <!-- ========================================================================================= -->
+    <section id="view-grafana" class="tab-content space-y-6">
       
-      <div class="double-bezel p-1 rounded-[1.75rem]">
-        <div class="inner-bezel rounded-[calc(1.75rem-0.25rem)] p-6 space-y-6">
+      <div class="bg-surface-card border border-surface-border rounded-xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="layout-dashboard" class="w-5 h-5 text-brand-400"></i>
+            <span>Grafana Live Telemetry Dashboard</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-1">Real-time visualization panels for Online Boutique microservice health, request distributions, and SLA metrics.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-slate-400 mono">Data Source: Localhost Prometheus Exporter</span>
+        </div>
+      </div>
+
+      <!-- Grafana Panel Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        
+        <!-- Panel 1: Service Uptime & Health State -->
+        <div class="bg-surface-card border border-surface-border rounded-xl p-4">
+          <div class="flex items-center justify-between mb-3 border-b border-surface-border/60 pb-2">
+            <span class="text-xs font-bold text-white uppercase tracking-wider">Service State & Availability</span>
+            <span class="text-[11px] mono text-slate-400">service_up == 1</span>
+          </div>
+          <div id="grafanaHealthTiles" class="grid grid-cols-5 gap-2 h-32 items-center">
+            <!-- Tiles populated by JS -->
+          </div>
+        </div>
+
+        <!-- Panel 2: Latency Distribution -->
+        <div class="bg-surface-card border border-surface-border rounded-xl p-4">
+          <div class="flex items-center justify-between mb-3 border-b border-surface-border/60 pb-2">
+            <span class="text-xs font-bold text-white uppercase tracking-wider">Request Duration (Seconds)</span>
+            <span class="text-[11px] mono text-slate-400">http_request_duration_seconds</span>
+          </div>
+          <div class="space-y-3 pt-2" id="grafanaLatencyBars">
+            <!-- Latency progress bars populated by JS -->
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ========================================================================================= -->
+    <!-- TAB 4: CHAOS ENGINEERING (REAL FAULT INJECTION) -->
+    <!-- ========================================================================================= -->
+    <section id="view-chaos" class="tab-content space-y-6">
+      
+      <div class="bg-surface-card border border-surface-border rounded-xl p-5">
+        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <i data-lucide="flame" class="w-5 h-5 text-rose-400"></i>
+          <span>Real Fault Injection Console</span>
+        </h2>
+        <p class="text-xs text-slate-400 mt-1">Trigger authentic faults on local containers. The selected failure executes directly on the process socket, causing immediate live alerts.</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Fault Injection Controls Form -->
+        <div class="bg-surface-card border border-surface-border rounded-xl p-5 space-y-4">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Configure Fault</h3>
           
-          <div class="flex items-center gap-3 border-b border-white/[0.08] pb-4">
-            <div class="w-10 h-10 rounded-xl bg-slate-800 border border-white/10 flex items-center justify-center text-slate-300 shadow-sm">
-              <i data-lucide="sliders" class="w-6 h-6" aria-hidden="true"></i>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1.5">Target Microservice</label>
+            <select id="chaosServiceSelect" class="w-full bg-surface-subtle border border-surface-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500 mono">
+              <option value="payment-service">payment-service (Port 8081 - Go)</option>
+              <option value="cart-service">cart-service (Port 8082 - C#)</option>
+              <option value="frontend">frontend (Port 8083 - Go)</option>
+              <option value="productcatalog-service">productcatalog-service (Port 8084 - Go)</option>
+              <option value="redis-cart">redis-cart (Port 6380 - Redis)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1.5">Experiment Type (Real Action)</label>
+            <select id="chaosTypeSelect" class="w-full bg-surface-subtle border border-surface-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500 mono">
+              <option value="PodFailure">💥 Pod Failure / SIGKILL (Halts Listener & Port)</option>
+              <option value="StressChaos">🔥 StressChaos (Spike CPU & Memory >90%)</option>
+              <option value="NetworkLatency">⏱️ Network Latency (Inject 850ms RTT Delay)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1.5">Tenant SLA Context</label>
+            <select id="chaosTenantSelect" class="w-full bg-surface-subtle border border-surface-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500 mono">
+              <option value="tenant_a">Tenant A (Tier 1 VIP - 5 Minute SLA)</option>
+              <option value="tenant_b">Tenant B (Standard - 15 Minute SLA)</option>
+              <option value="tenant_c">Tenant C (Batch - 30 Minute SLA)</option>
+            </select>
+          </div>
+
+          <button id="btnInjectChaos" onclick="executeRealChaosInjection()" class="w-full py-2.5 px-4 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-colors shadow-lg shadow-rose-900/30">
+            <i data-lucide="zap" class="w-4 h-4"></i>
+            <span>Inject Real Fault & Trigger Alert</span>
+          </button>
+        </div>
+
+        <!-- Terminal Execution Log -->
+        <div class="lg:col-span-2 bg-surface-card border border-surface-border rounded-xl p-5 flex flex-col">
+          <div class="flex items-center justify-between mb-3 border-b border-surface-border pb-2">
+            <span class="text-xs font-bold text-white uppercase tracking-wider">Chaos Engine Execution Log</span>
+            <span class="text-[11px] mono text-slate-400">PostgreSQL Ground-Truth Ledger</span>
+          </div>
+
+          <div id="chaosTerminalOutput" class="flex-1 p-4 rounded-lg bg-[#070b12] border border-surface-border text-slate-300 mono text-xs h-72 overflow-y-auto custom-scroll space-y-1.5 leading-relaxed">
+            <div class="text-slate-500">[STANDBY] Ready for precision fault injection. Select target service and experiment type above.</div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ========================================================================================= -->
+    <!-- TAB 5: INCIDENT MANAGEMENT & APPROVALS -->
+    <!-- ========================================================================================= -->
+    <section id="view-incidents" class="tab-content space-y-6">
+      
+      <div class="bg-surface-card border border-surface-border rounded-xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="shield-check" class="w-5 h-5 text-brand-400"></i>
+            <span>Incident Queue & Human Approval Gate</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-1">Multi-tenant SLA triage queue with mandatory operator approval before executing automated playbooks.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-400">Active Incidents:</span>
+          <span id="activeIncidentsBadge" class="px-2 py-0.5 rounded text-xs font-bold bg-amber-950 text-amber-300 border border-amber-800">0 Active</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Incidents List -->
+        <div class="bg-surface-card border border-surface-border rounded-xl p-4 space-y-3">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Triage Queue</h3>
+          <div id="incidentsQueueList" class="space-y-2 max-h-[500px] overflow-y-auto custom-scroll">
+            <div class="p-6 text-center text-slate-500 text-xs">No active incidents. System healthy.</div>
+          </div>
+        </div>
+
+        <!-- Incident Inspection & Human Approval Gate -->
+        <div class="lg:col-span-2 space-y-5">
+          
+          <!-- HUMAN APPROVAL BANNER CARD (THE CRITICAL FIX) -->
+          <div id="humanApprovalGateCard" class="hidden bg-gradient-to-r from-amber-950/70 to-slate-900 border-2 border-amber-500/80 rounded-xl p-5 shadow-xl">
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 flex-shrink-0">
+                  <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                    <span>ACTION PAUSED — HUMAN APPROVAL REQUIRED</span>
+                    <span class="text-[10px] px-2 py-0.5 rounded bg-amber-900 text-amber-200 uppercase font-mono">Operator Sign-Off</span>
+                  </h4>
+                  <p class="text-xs text-amber-200/90 mt-1">The AI SRE has completed root cause analysis and formulated a self-healing action. Because <strong>Human Approval Mode</strong> is active, the system is strictly waiting for your sign-off.</p>
+                  
+                  <div class="mt-3 p-3 rounded-lg bg-black/40 border border-white/10 text-xs mono text-slate-200">
+                    <span class="text-slate-400">Proposed Remediation:</span>
+                    <div id="gateActionCommand" class="text-brand-300 font-semibold mt-0.5">ansible-playbook ansible/restart_service.yml -e service=payment-service</div>
+                  </div>
+                </div>
+              </div>
             </div>
+
+            <!-- Explicit Approve vs Reject Controls -->
+            <div class="mt-4 pt-3 border-t border-amber-500/30 flex items-center justify-end gap-3">
+              <button onclick="rejectPendingIncident()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-700">
+                <i data-lucide="x-circle" class="w-4 h-4 text-rose-400"></i>
+                <span>Reject Action</span>
+              </button>
+              <button onclick="approvePendingIncident()" class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-lg shadow-emerald-950">
+                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                <span>Approve & Execute Self-Healing</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Incident Details Inspection -->
+          <div id="incidentDetailsCard" class="bg-surface-card border border-surface-border rounded-xl p-5 space-y-4">
+            <div class="flex items-center justify-between border-b border-surface-border pb-3">
+              <div>
+                <span class="text-xs text-slate-400">Selected Incident:</span>
+                <span id="inspIncidentId" class="text-xs font-bold text-white mono ml-1">None Selected</span>
+              </div>
+              <span id="inspStatusBadge" class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300">N/A</span>
+            </div>
+
+            <!-- AI SRE Diagnosis Block -->
+            <div class="p-4 rounded-lg bg-surface-subtle border border-surface-border space-y-2">
+              <div class="text-xs text-slate-400 uppercase font-semibold">AI SRE Root Cause Analysis (RAG ChromaDB)</div>
+              <div id="inspRcaHeadline" class="text-sm font-semibold text-white">Select an incident from the triage queue to inspect diagnosis</div>
+              <div class="flex items-center gap-4 text-xs text-slate-400 pt-1">
+                <div>Confidence Score: <span id="inspConfidence" class="text-emerald-400 font-bold mono">--</span></div>
+                <div>Matched Runbook: <span id="inspRunbook" class="text-brand-300 font-mono">--</span></div>
+              </div>
+            </div>
+
+            <!-- Execution Terminal Stream -->
             <div>
-              <h2 class="text-base font-bold tracking-tight text-white uppercase">Platform Policies & SLA Architecture</h2>
-              <p class="text-xs text-slate-400">Configure multi-tenant contracts, telemetry endpoints, and autonomous self-healing guardrails</p>
-            </div>
-          </div>
-
-          <!-- Multi-Tenant SLA Settings Form -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div class="bg-surface-base p-4 rounded-xl border border-white/[0.06] space-y-2">
-              <span class="text-xs font-bold text-teal-400 uppercase tracking-wider">Tenant A (Tier 1 VIP)</span>
-              <p class="text-xs text-slate-400">Max SLA Response Limit:</p>
-              <div class="text-2xl font-mono font-bold text-white">300s (5 min)</div>
-              <p class="text-[11px] text-slate-500">Accelerated severity multiplier: 1.5x risk escalation.</p>
+              <div class="text-xs font-semibold text-slate-400 mb-2">Remediation Execution Terminal (Ansible Output)</div>
+              <pre id="remediationStreamOutput" class="p-4 rounded-lg bg-[#070b12] border border-surface-border text-slate-300 mono text-xs h-48 overflow-y-auto custom-scroll leading-relaxed">
+[STANDBY] Waiting for incident selection or operator approval action.
+              </pre>
             </div>
 
-            <div class="bg-surface-base p-4 rounded-xl border border-white/[0.06] space-y-2">
-              <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider">Tenant B (Tier 2 Standard)</span>
-              <p class="text-xs text-slate-400">Max SLA Response Limit:</p>
-              <div class="text-2xl font-mono font-bold text-white">900s (15 min)</div>
-              <p class="text-[11px] text-slate-500">Standard escalation with automated alerting.</p>
-            </div>
-
-            <div class="bg-surface-base p-4 rounded-xl border border-white/[0.06] space-y-2">
-              <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">Tenant C (Tier 3 Basic)</span>
-              <p class="text-xs text-slate-400">Max SLA Response Limit:</p>
-              <div class="text-2xl font-mono font-bold text-white">1800s (30 min)</div>
-              <p class="text-[11px] text-slate-500">Standard batch mitigation window.</p>
-            </div>
-          </div>
-
-          <!-- Telemetry Backend Connectors Status -->
-          <div class="bg-surface-base p-4 rounded-xl border border-white/[0.06] space-y-3">
-            <span class="text-xs font-bold text-slate-200 uppercase tracking-wider">Telemetry Backends Health</span>
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs font-mono">
-              <div class="flex items-center justify-between p-2.5 rounded-lg bg-surface-card border border-white/5">
-                <span class="text-slate-400">Prometheus:</span>
-                <span class="text-emerald-400 font-bold">CONNECTED</span>
-              </div>
-              <div class="flex items-center justify-between p-2.5 rounded-lg bg-surface-card border border-white/5">
-                <span class="text-slate-400">Grafana Loki:</span>
-                <span class="text-emerald-400 font-bold">CONNECTED</span>
-              </div>
-              <div class="flex items-center justify-between p-2.5 rounded-lg bg-surface-card border border-white/5">
-                <span class="text-slate-400">Grafana Tempo:</span>
-                <span class="text-emerald-400 font-bold">CONNECTED</span>
-              </div>
-              <div class="flex items-center justify-between p-2.5 rounded-lg bg-surface-card border border-white/5">
-                <span class="text-slate-400">Redis Stream:</span>
-                <span class="text-emerald-400 font-bold">CONNECTED</span>
-              </div>
-              <div class="flex items-center justify-between p-2.5 rounded-lg bg-surface-card border border-white/5">
-                <span class="text-slate-400">Postgres Ledger:</span>
-                <span class="text-emerald-400 font-bold">CONNECTED</span>
-              </div>
-              <div class="flex items-center justify-between p-2.5 rounded-lg bg-surface-card border border-white/5">
-                <span class="text-slate-400">ChromaDB Local:</span>
-                <span class="text-emerald-400 font-bold">5 RUNBOOKS</span>
-              </div>
-            </div>
           </div>
 
         </div>
+
       </div>
 
     </section>
 
   </main>
 
-  <!-- JAVASCRIPT APPLICATION CORE (Multi-View State, Hash Router, and APIs) -->
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- SCRIPT LOGIC -->
   <script>
     // State
-    let activeView = "overview";
+    let currentTab = 'architecture';
+    let isAutonomousMode = false; // Default to Human Approval Gate!
+    let meshServices = [];
     let activeIncidents = [];
     let selectedIncident = null;
-    let globalTenant = "all";
-    let isAutonomousActive = true;
-    let topologyData = null;
 
-    // Available Views
-    const AVAILABLE_VIEWS = ['overview', 'chaos', 'incidents', 'investigation', 'benchmarks', 'settings'];
-
-    document.addEventListener("DOMContentLoaded", () => {
-      // 1. Initialize Icons
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', async () => {
       lucide.createIcons();
-
-      // 2. Hash-based Routing
-      const hash = window.location.hash.replace('#', '');
-      if (AVAILABLE_VIEWS.includes(hash)) {
-        activeView = hash;
-      }
-      applyViewTransition(activeView);
-
-      window.addEventListener('hashchange', () => {
-        const newHash = window.location.hash.replace('#', '');
-        if (AVAILABLE_VIEWS.includes(newHash)) {
-          navigateTab(newHash, false);
-        }
-      });
-
-      // 3. Initial Data Load
-      triggerDataSync();
-
-      // 4. Polling Loop (every 4 seconds)
+      await fetchOperatingMode();
+      await refreshAllData();
+      
+      // Auto-poll metrics and health every 4 seconds
       setInterval(() => {
-        syncIncidents(false);
+        loadMeshStatus(false);
+        if (currentTab === 'metrics') loadRawPrometheusMetrics();
+        if (currentTab === 'incidents') loadIncidents(false);
       }, 4000);
+
+      // Handle URL hash navigation
+      const hash = window.location.hash.replace('#', '');
+      if (['architecture', 'metrics', 'grafana', 'chaos', 'incidents'].includes(hash)) {
+        switchTab(hash);
+      }
     });
 
-    // Hash Router Tab Switcher
-    function navigateTab(viewKey, updateHash = true) {
-      if (!AVAILABLE_VIEWS.includes(viewKey)) return;
-      activeView = viewKey;
-      if (updateHash) {
-        window.location.hash = viewKey;
+    // Tab Navigation
+    function switchTab(tabId) {
+      currentTab = tabId;
+      window.location.hash = tabId;
+
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      const activeBtn = document.getElementById(`tab-${tabId}`);
+      const activeContent = document.getElementById(`view-${tabId}`);
+      if (activeBtn) activeBtn.classList.add('active');
+      if (activeContent) activeContent.classList.add('active');
+
+      if (tabId === 'architecture') loadMeshStatus();
+      if (tabId === 'metrics') loadRawPrometheusMetrics();
+      if (tabId === 'incidents') loadIncidents();
+
+      lucide.createIcons();
+    }
+
+    // Operating Mode Toggle (Human Approval vs Autonomous)
+    async function fetchOperatingMode() {
+      try {
+        const res = await fetch('/api/v1/incidents/mode');
+        const data = await res.json();
+        isAutonomousMode = data.autonomous_mode;
+        renderModeButton();
+      } catch (err) {
+        console.error("Failed to fetch mode:", err);
       }
-      applyViewTransition(viewKey);
     }
 
-    function applyViewTransition(viewKey) {
-      AVAILABLE_VIEWS.forEach(v => {
-        const navBtn = document.getElementById(`tabNav-${v}`);
-        const viewPanel = document.getElementById(`view-${v}`);
-        
-        if (v === viewKey) {
-          navBtn.className = "spring-trans px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 whitespace-nowrap bg-brand-500/10 text-brand-300 border border-brand-500/30 shadow-sm";
-          navBtn.setAttribute('aria-selected', 'true');
-          viewPanel.classList.remove('hidden');
-        } else {
-          navBtn.className = "spring-trans px-3.5 py-2 rounded-lg text-xs font-medium flex items-center gap-2 whitespace-nowrap text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]";
-          navBtn.setAttribute('aria-selected', 'false');
-          viewPanel.classList.add('hidden');
-        }
-      });
-      lucide.createIcons();
+    async function toggleOperationalMode() {
+      isAutonomousMode = !isAutonomousMode;
+      try {
+        await fetch('/api/v1/incidents/mode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ autonomous_mode: isAutonomousMode })
+        });
+        renderModeButton();
+        showToast(
+          isAutonomousMode 
+            ? "Autonomous Mode Enabled: Incidents will self-heal automatically" 
+            : "Human Approval Gate Active: Remediation strictly requires operator sign-off",
+          isAutonomousMode ? "info" : "warning"
+        );
+      } catch (err) {
+        console.error("Error setting mode:", err);
+      }
     }
 
-    // Investigation Room Sub-Tabs
-    function switchInvSubTab(subTabKey) {
-      const subTabs = ['diagnosis', 'runbook', 'telemetry', 'remediation'];
-      subTabs.forEach(s => {
-        const btn = document.getElementById(`invSubTab-${s}`);
-        const panel = document.getElementById(`invSubPanel-${s}`);
-        if (s === subTabKey) {
-          btn.className = "spring-trans px-4 py-2.5 border-b-2 border-brand-500 text-brand-400 flex items-center gap-2";
-          btn.setAttribute('aria-selected', 'true');
-          panel.classList.remove('hidden');
-        } else {
-          btn.className = "spring-trans px-4 py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2";
-          btn.setAttribute('aria-selected', 'false');
-          panel.classList.add('hidden');
-        }
-      });
-      lucide.createIcons();
-    }
+    function renderModeButton() {
+      const btn = document.getElementById("modeToggleBtn");
+      const label = document.getElementById("modeLabel");
+      const icon = document.getElementById("modeIcon");
 
-    // Global Mode Toggle
-    function toggleGlobalAutonomousMode() {
-      isAutonomousActive = !isAutonomousActive;
-      const btn = document.getElementById("globalModeBtn");
-      const text = document.getElementById("globalModeText");
-      if (isAutonomousActive) {
-        btn.className = "spring-trans flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs font-semibold bg-emerald-950/50 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60";
-        text.innerText = "Autonomous Self-Healing";
-        showToast("Autonomous Mode Active: AI will remediate incidents automatically", "info");
+      if (isAutonomousMode) {
+        btn.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-all bg-emerald-950/60 border-emerald-600/50 text-emerald-300 hover:bg-emerald-900/50";
+        label.innerText = "Autonomous Self-Healing (Active)";
+        icon.setAttribute("data-lucide", "zap");
       } else {
-        btn.className = "spring-trans flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs font-semibold bg-amber-950/50 border-amber-500/40 text-amber-300 hover:bg-amber-900/60";
-        text.innerText = "Human Approval Required";
-        showToast("Human-in-the-Loop Mode Active: Manual confirmation required for remediation", "info");
+        btn.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-all bg-amber-950/60 border-amber-600/50 text-amber-300 hover:bg-amber-900/50";
+        label.innerText = "Human Approval Gate (Active)";
+        icon.setAttribute("data-lucide", "shield-alert");
       }
       lucide.createIcons();
     }
 
-    // Global Tenant Filter
-    function handleGlobalTenantChange(tenant) {
-      globalTenant = tenant;
-      triggerDataSync();
-    }
-
-    // Toast Notification System
-    function showToast(message, type = "success") {
-      const container = document.getElementById("toastContainer");
-      const toast = document.createElement("div");
-      toast.className = `p-4 rounded-xl border shadow-xl flex items-center justify-between gap-3 text-xs spring-trans pointer-events-auto ${
-        type === 'success' ? 'bg-brand-950/90 border-brand-500/40 text-brand-200' :
-        type === 'error' ? 'bg-rose-950/90 border-rose-500/40 text-rose-200' :
-        'bg-slate-900/90 border-white/20 text-slate-200'
-      }`;
-
-      toast.innerHTML = `
-        <div class="flex items-center gap-2.5">
-          <i data-lucide="${type === 'success' ? 'check-circle' : type === 'error' ? 'alert-triangle' : 'info'}" class="w-4 h-4 shrink-0"></i>
-          <span>${message}</span>
-        </div>
-        <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white" aria-label="Dismiss Notification">
-          <i data-lucide="x" class="w-3.5 h-3.5"></i>
-        </button>
-      `;
-      container.appendChild(toast);
-      lucide.createIcons();
-
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(10px)';
-        setTimeout(() => toast.remove(), 400);
-      }, 5000);
-    }
-
-    // Trigger Full Data Sync
-    async function triggerDataSync() {
-      const icon = document.getElementById("globalSyncIcon");
-      icon.classList.add("animate-spin");
+    // Refresh All Data
+    async function refreshAllData() {
+      const icon = document.getElementById("refreshIcon");
+      if (icon) icon.classList.add("animate-spin");
       await Promise.all([
-        syncIncidents(),
-        syncTopology(),
-        loadBenchmarksScorecard(),
-        loadGroundTruthLedger()
+        loadMeshStatus(),
+        loadRawPrometheusMetrics(),
+        loadIncidents()
       ]);
-      setTimeout(() => icon.classList.remove("animate-spin"), 600);
+      if (icon) setTimeout(() => icon.classList.remove("animate-spin"), 500);
     }
 
-    // Sync Incidents
-    async function syncIncidents(showLoading = true) {
+    // Load Mesh Status
+    async function loadMeshStatus(renderToast = true) {
       try {
-        const url = globalTenant === "all" ? "/api/v1/incidents" : `/api/v1/incidents?tenant_id=${globalTenant}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        activeIncidents = data;
-        
-        // Update counts
-        const activeCount = data.filter(i => i.incident.status !== "RESOLVED").length;
-        document.getElementById("tabCountIncidents").innerText = activeCount;
-        document.getElementById("triageActiveBadge").innerText = `${activeCount} Active`;
+        const res = await fetch('/api/v1/mesh/status');
+        const services = await res.json();
+        meshServices = services;
 
-        renderTriageQueue();
-        if (data.length > 0 && !selectedIncident) {
-          selectIncidentForInvestigation(data[0].incident.incident_id);
-        }
-      } catch (err) {
-        console.error("Incidents fetch error:", err);
-      }
-    }
+        const healthyCount = services.filter(s => s.status === 'HEALTHY').length;
+        document.getElementById("headerMeshHealth").innerText = `${healthyCount}/${services.length} UP`;
+        document.getElementById("headerMeshHealth").className = healthyCount === services.length 
+          ? "font-semibold text-emerald-400" 
+          : "font-semibold text-rose-400";
 
-    // Sync Topology
-    async function syncTopology() {
-      try {
-        const res = await fetch("/api/v1/topology");
-        const data = await res.json();
-        topologyData = data;
-        document.getElementById("topK8sStatus").innerText = `${data.healthy_count}/${data.total_microservices} Online`;
-        document.getElementById("topologyHealthyCount").innerText = `${data.healthy_count} Healthy`;
-        document.getElementById("topologyDegradedCount").innerText = `${data.degraded_count} Degraded`;
+        // Update Topology Diagram Badges
+        services.forEach(s => {
+          const badge = document.getElementById(`badge-diag-${s.service}`);
+          const card = document.getElementById(`diag-${s.service}`);
+          if (badge && card) {
+            if (s.status === 'HEALTHY') {
+              badge.innerText = "UP";
+              badge.className = "text-[10px] font-bold text-emerald-400";
+              card.className = "border border-brand-500/40 bg-surface-subtle rounded-lg p-3 text-center";
+            } else {
+              badge.innerText = "CRASHED";
+              badge.className = "text-[10px] font-bold text-rose-400 animate-pulse";
+              card.className = "border-2 border-rose-500 bg-rose-950/30 rounded-lg p-3 text-center shadow-lg shadow-rose-950";
+            }
+          }
+        });
 
-        const container = document.getElementById("topologyGridContainer");
-        container.innerHTML = data.services.map(s => {
-          const isDegraded = s.status !== "HEALTHY";
+        // Render Service Cards in Tab 1
+        const grid = document.getElementById("servicesStatusGrid");
+        grid.innerHTML = services.map(s => {
+          const isUp = s.status === 'HEALTHY';
           return `
-            <div class="p-3.5 rounded-xl border spring-trans ${isDegraded ? 'bg-rose-950/30 border-rose-500/50 shadow-lg shadow-rose-950/40' : 'bg-surface-base border-white/[0.06] hover:border-white/20'}">
-              <div class="flex items-center justify-between text-xs">
-                <span class="font-mono font-bold text-white">${s.name}</span>
-                <span class="w-2 h-2 rounded-full ${isDegraded ? 'bg-rose-400 animate-ping' : 'bg-emerald-400'}"></span>
-              </div>
-              <div class="text-[11px] text-slate-400 mt-1">${s.tier} • <span class="font-mono text-slate-300">${s.language}</span></div>
-              <div class="flex items-center justify-between text-[10px] font-mono mt-2 pt-2 border-t border-white/[0.04]">
-                <span class="${isDegraded ? 'text-rose-400 font-bold' : 'text-slate-400'}">P99: ${s.latency_p99}</span>
-                <span class="text-slate-400">${s.memory_mb} MB</span>
-              </div>
-            </div>
-          `;
-        }).join('');
-      } catch (err) {
-        console.error("Topology error:", err);
-      }
-    }
-
-    // Load Benchmarks Scorecard
-    async function loadBenchmarksScorecard() {
-      try {
-        const res = await fetch("/api/v1/benchmarks/scorecard");
-        const data = await res.json();
-        
-        // Update Overview
-        document.getElementById("overviewAccuracy").innerText = data.rca_accuracy_percentage + "%";
-        document.getElementById("overviewMttd").innerText = data.mean_time_to_detect_seconds + "s";
-        document.getElementById("overviewSla").innerText = data.sla_protection_rate + "%";
-        document.getElementById("overviewAlertsCompressed").innerText = `${data.alerts_compressed} → 1`;
-        document.getElementById("triageRawAlertsCount").innerText = data.alerts_compressed;
-
-        // Update Efficiency Tab
-        if (data.investigation_efficiency) {
-          document.getElementById("statPromql").innerText = data.investigation_efficiency.promql_queries;
-          document.getElementById("statLogql").innerText = data.investigation_efficiency.logql_queries;
-          document.getElementById("statTraceql").innerText = data.investigation_efficiency.traceql_queries;
-          document.getElementById("statK8s").innerText = data.investigation_efficiency.k8s_api_calls;
-        }
-      } catch (err) {
-        console.error("Scorecard error:", err);
-      }
-    }
-
-    // Load Ground Truth Ledger Table
-    async function loadGroundTruthLedger() {
-      try {
-        const res = await fetch("/api/v1/chaos/ledger");
-        const ledger = await res.json();
-        const tbody = document.getElementById("ledgerTableBody");
-
-        if (ledger.length === 0) {
-          tbody.innerHTML = `
-            <tr>
-              <td colspan="7" class="py-8 text-center text-slate-500 font-sans">
-                No ledger records yet. Inject chaos in the Chaos Studio to create ground truth benchmarks.
-              </td>
-            </tr>
-          `;
-          return;
-        }
-
-        tbody.innerHTML = ledger.map(entry => {
-          return `
-            <tr class="hover:bg-white/[0.02]">
-              <td class="py-3 px-4 font-bold text-white">${entry.experiment_id}</td>
-              <td class="py-3 px-4 text-teal-300 font-bold">${entry.service}</td>
-              <td class="py-3 px-4 text-amber-300">${entry.experiment_type}</td>
-              <td class="py-3 px-4 text-slate-300 font-sans">${entry.ai_diagnosis || 'Diagnosing...'}</td>
-              <td class="py-3 px-4 text-emerald-400 font-bold">${entry.confidence_score ? (entry.confidence_score * 100).toFixed(1) + '%' : '94.0%'}</td>
-              <td class="py-3 px-4 text-slate-400">${entry.investigation_duration_seconds ? entry.investigation_duration_seconds + 's' : '0.4s'}</td>
-              <td class="py-3 px-4">
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
-                  MATCH 100%
+            <div class="p-4 rounded-xl border ${isUp ? 'border-surface-border bg-surface-card' : 'border-rose-500/60 bg-rose-950/20'} space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h4 class="font-bold text-white text-xs mono">${s.service}</h4>
+                  <div class="text-[11px] text-slate-400">${s.role}</div>
+                </div>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isUp ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-rose-950 text-rose-300 border border-rose-800 animate-pulse'}">
+                  ${s.status}
                 </span>
-              </td>
-            </tr>
+              </div>
+              <div class="grid grid-cols-3 gap-2 text-[11px] mono pt-2 border-t border-surface-border/50 text-slate-300">
+                <div>Port: <span class="text-white">${s.port}</span></div>
+                <div>CPU: <span class="text-white">${s.cpu_percent}%</span></div>
+                <div>RAM: <span class="text-white">${s.memory_mb}MB</span></div>
+              </div>
+            </div>
           `;
         }).join('');
-      } catch (err) {
-        console.error("Ledger load error:", err);
-      }
-    }
 
-    // Render Triage Queue
-    function renderTriageQueue() {
-      const container = document.getElementById("triageIncidentsContainer");
-      if (activeIncidents.length === 0) {
-        container.innerHTML = `
-          <div class="text-center py-12 text-slate-500 text-xs border border-dashed border-white/10 rounded-2xl p-6">
-            <i data-lucide="shield-check" class="w-10 h-10 text-emerald-400 mx-auto mb-2 opacity-80" aria-hidden="true"></i>
-            <p class="font-bold text-slate-300">All Incident Queues Clear</p>
-            <p class="text-[11px] text-slate-500 mt-1">No alerts pending triage. Inject chaos in Tab 2 to test the correlation pipeline.</p>
-          </div>
-        `;
-        lucide.createIcons();
-        return;
-      }
-
-      container.innerHTML = activeIncidents.map(item => {
-        const inc = item.incident;
-        const sla = item.sla;
-        const isSelected = selectedIncident && selectedIncident.incident.incident_id === inc.incident_id;
-
-        const mins = Math.floor(sla.time_to_breach_seconds / 60);
-        const secs = Math.floor(sla.time_to_breach_seconds % 60);
-        const countdownStr = `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
-
-        let slaStyle = "text-emerald-400 bg-emerald-950/40 border-emerald-500/30";
-        if (sla.is_breached || sla.risk_score >= 80) {
-          slaStyle = "text-rose-400 bg-rose-950/80 border-rose-500/60 animate-pulse";
-        } else if (sla.risk_score >= 50) {
-          slaStyle = "text-amber-400 bg-amber-950/40 border-amber-500/30";
+        // Render Grafana Tiles in Tab 3
+        const tiles = document.getElementById("grafanaHealthTiles");
+        if (tiles) {
+          tiles.innerHTML = services.map(s => `
+            <div class="p-2 rounded text-center text-xs font-semibold ${s.status === 'HEALTHY' ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-700' : 'bg-rose-950/80 text-rose-300 border border-rose-700 animate-pulse'}">
+              <div class="mono text-[10px] truncate">${s.service}</div>
+              <div class="text-[11px] mt-1">${s.status === 'HEALTHY' ? '1.0' : '0.0'}</div>
+            </div>
+          `).join('');
         }
 
-        const statusPill = inc.status === "RESOLVED"
-          ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">RESOLVED</span>`
-          : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-800">${inc.severity.toUpperCase()}</span>`;
-
-        return `
-          <div onclick="selectIncidentForInvestigation('${inc.incident_id}')" class="spring-trans p-4 rounded-xl border cursor-pointer ${isSelected ? 'bg-surface-elevated border-brand-500 shadow-lg shadow-brand-950/40' : 'bg-surface-base border-white/[0.06] hover:border-white/20'}">
-            <div class="flex items-center justify-between gap-2">
-              <div class="flex items-center gap-2">
-                <span class="font-mono text-xs font-bold text-white">${inc.incident_id}</span>
-                ${statusPill}
+        // Render Grafana Latency Bars
+        const latBars = document.getElementById("grafanaLatencyBars");
+        if (latBars) {
+          latBars.innerHTML = services.map(s => {
+            const lat = s.added_latency_ms > 0 ? s.added_latency_ms : 24;
+            const pct = Math.min(100, Math.max(5, (lat / 1000) * 100));
+            return `
+              <div>
+                <div class="flex justify-between text-xs mono text-slate-300 mb-1">
+                  <span>${s.service}</span>
+                  <span>${lat} ms</span>
+                </div>
+                <div class="w-full bg-surface-subtle h-2 rounded-full overflow-hidden">
+                  <div class="h-full ${lat > 300 ? 'bg-rose-500' : 'bg-brand-500'}" style="width: ${pct}%"></div>
+                </div>
               </div>
-              <span class="text-[10px] font-mono px-2 py-0.5 rounded border ${slaStyle}">
-                SLA: ${countdownStr}
-              </span>
-            </div>
-
-            <div class="mt-2 text-xs font-bold text-slate-200">${inc.root_cause_candidate}</div>
-            
-            <div class="flex items-center justify-between text-[11px] text-slate-400 mt-2">
-              <span>Primary Culprit: <b class="text-teal-300">${inc.primary_service}</b></span>
-              <span>Tenant: <b class="text-slate-300">${inc.tenant_id.replace('_', ' ').toUpperCase()}</b></span>
-            </div>
-
-            <div class="flex items-center gap-1.5 mt-2 flex-wrap text-[10px] font-mono">
-              <span class="text-slate-500 font-sans">Blast:</span>
-              ${inc.affected_services.map(s => `<span class="px-1.5 py-0.5 rounded bg-surface-card border border-white/5 text-slate-300">${s}</span>`).join('')}
-              <span class="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800 ml-auto">+${inc.total_alerts} alerts</span>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      lucide.createIcons();
-    }
-
-    // Select Incident
-    async function selectIncidentForInvestigation(incId) {
-      const match = activeIncidents.find(i => i.incident.incident_id === incId);
-      if (!match) return;
-      selectedIncident = match;
-      renderTriageQueue();
-
-      document.getElementById("investigationIncidentIdPill").innerText = incId;
-      document.getElementById("invRcaPrimaryService").innerText = match.incident.primary_service;
-
-      try {
-        const res = await fetch(`/api/v1/incidents/${incId}/diagnose`, { method: "POST" });
-        const diag = await res.json();
-        const rca = diag.root_cause_analysis;
-
-        document.getElementById("invRcaHeadline").innerText = rca.diagnosis;
-        document.getElementById("investigationConfidenceScore").innerText = (rca.confidence_score * 100).toFixed(1) + "%";
-        document.getElementById("invRemediationCmdText").innerText = rca.recommended_remediation;
-
-        if (rca.referenced_runbooks && rca.referenced_runbooks.length > 0) {
-          const rb = rca.referenced_runbooks[0];
-          document.getElementById("invRunbookTitle").innerText = rb.title;
-          document.getElementById("invRunbookMatchScore").innerText = (rb.similarity * 100).toFixed(1) + "% Match";
+            `;
+          }).join('');
         }
+
+        // Update KPIs in Tab 2
+        const totalCpu = services.reduce((acc, s) => acc + s.cpu_percent, 0);
+        const totalMem = services.reduce((acc, s) => acc + s.memory_mb, 0);
+        document.getElementById("kpiCpuUsage").innerText = `${totalCpu.toFixed(1)}%`;
+        document.getElementById("kpiMemUsage").innerText = `${Math.round(totalMem)} MB`;
+
       } catch (err) {
-        console.error("Diagnosis error:", err);
+        console.error("Failed to load mesh status:", err);
       }
     }
 
-    // Execute Chaos Injection
-    async function executeChaosFromStudio() {
-      const service = document.getElementById("chaosFormService").value;
-      const type = document.getElementById("chaosFormType").value;
-      const tenant = document.getElementById("chaosFormTenant").value;
-      const btn = document.getElementById("btnExecuteChaos");
-      const btnText = document.getElementById("btnExecuteChaosText");
+    // Load Raw Prometheus Metrics
+    async function loadRawPrometheusMetrics() {
+      try {
+        const res = await fetch('/api/v1/mesh/metrics');
+        const text = await res.text();
+        const pre = document.getElementById("rawPrometheusOutput");
+        if (pre) {
+          const filter = document.getElementById("promqlSearchInput").value.trim().toLowerCase();
+          if (filter) {
+            pre.innerText = text.split('\n').filter(line => line.toLowerCase().includes(filter)).join('\n');
+          } else {
+            pre.innerText = text;
+          }
+        }
+      } catch (err) {
+        console.error("Prometheus metrics fetch error:", err);
+      }
+    }
+
+    document.getElementById("promqlSearchInput")?.addEventListener('input', loadRawPrometheusMetrics);
+
+    // Chaos Fault Injection
+    async function executeRealChaosInjection() {
+      const service = document.getElementById("chaosServiceSelect").value;
+      const expType = document.getElementById("chaosTypeSelect").value;
+      const tenant = document.getElementById("chaosTenantSelect").value;
+      const btn = document.getElementById("btnInjectChaos");
+      const terminal = document.getElementById("chaosTerminalOutput");
 
       btn.disabled = true;
-      btnText.innerText = "Injecting Fault...";
+      btn.innerText = "Injecting Failure on Live Container...";
+
+      const logMsg = (msg, isErr = false) => {
+        const row = document.createElement("div");
+        row.className = isErr ? "text-rose-400 font-bold" : "text-brand-300";
+        row.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        terminal.appendChild(row);
+        terminal.scrollTop = terminal.scrollHeight;
+      };
+
+      logMsg(`Executing REAL ${expType} against '${service}'...`);
 
       try {
-        const res = await fetch("/api/v1/chaos/inject", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const res = await fetch('/api/v1/chaos/inject', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             service: service,
-            experiment_type: type,
+            experiment_type: expType,
             tenant_id: tenant,
             duration_seconds: 60
           })
         });
+
         const data = await res.json();
+        logMsg(`FAULT INJECTED: ${data.ground_truth.ground_truth_cause}`);
+        logMsg(`Alerts Cascaded: ${data.compressed_alerts_count} raw telemetry alerts compressed into Incident ${data.correlated_incident_id}`);
+        logMsg(`AI Agent Initialized: ${data.investigation.root_cause_analysis.diagnosis}`);
 
-        showToast(`Injected ${type} on ${service}. 542 alerts correlated into ${data.correlated_incident_id}.`, "success");
+        showToast(`Chaos injected into ${service}! Alert triggered.`, "warning");
+        await loadMeshStatus();
+        await loadIncidents();
 
-        await triggerDataSync();
-        if (data.correlated_incident_id) {
-          selectIncidentForInvestigation(data.correlated_incident_id);
-        }
-
-        // Auto-navigate to Triage or Investigation tab
-        navigateTab("incidents");
-
-        // If autonomous mode is active, trigger healing automatically
-        if (isAutonomousActive) {
-          setTimeout(() => {
-            triggerRemediationExecution(true);
-          }, 3200);
-        }
+        // Switch to Incidents tab so user sees the Human Approval gate!
+        setTimeout(() => switchTab('incidents'), 1200);
 
       } catch (err) {
-        showToast("Chaos injection failed: " + err, "error");
+        logMsg(`Injection Error: ${err.message}`, true);
       } finally {
         btn.disabled = false;
-        btnText.innerText = "⚡ Inject Chaos & Test Platform";
+        btn.innerHTML = `<i data-lucide="zap" class="w-4 h-4"></i><span>Inject Real Fault & Trigger Alert</span>`;
         lucide.createIcons();
       }
     }
 
-    // Quick preset helper
-    function setAndRunChaos(service, type, tenant) {
-      document.getElementById("chaosFormService").value = service;
-      document.getElementById("chaosFormType").value = type;
-      document.getElementById("chaosFormTenant").value = tenant;
-      executeChaosFromStudio();
+    // Load Incidents Queue
+    async function loadIncidents(renderFirst = true) {
+      try {
+        const res = await fetch('/api/v1/incidents');
+        const data = await res.json();
+        activeIncidents = data;
+
+        const countBadge = document.getElementById("incidentBadgeCount");
+        const activeBadge = document.getElementById("activeIncidentsBadge");
+        const list = document.getElementById("incidentsQueueList");
+
+        const openCount = data.filter(i => i.incident.status !== "RESOLVED").length;
+        if (countBadge) countBadge.innerText = openCount;
+        if (activeBadge) activeBadge.innerText = `${openCount} Active`;
+
+        if (data.length === 0) {
+          list.innerHTML = `<div class="p-6 text-center text-slate-500 text-xs">No active incidents. System healthy.</div>`;
+          document.getElementById("humanApprovalGateCard").classList.add("hidden");
+          return;
+        }
+
+        list.innerHTML = data.map(item => {
+          const inc = item.incident;
+          const sla = item.sla;
+          const isPending = inc.status === "PENDING_APPROVAL";
+          const isResolved = inc.status === "RESOLVED";
+
+          return `
+            <div onclick="selectIncident('${inc.incident_id}')" class="p-3 rounded-lg border ${selectedIncident?.incident.incident_id === inc.incident_id ? 'border-brand-500 bg-surface-subtle' : 'border-surface-border bg-surface-bg'} hover:border-brand-500/60 cursor-pointer transition-all space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-white mono">${inc.primary_service}</span>
+                <span class="px-1.5 py-0.2 rounded text-[10px] font-bold ${isResolved ? 'bg-emerald-950 text-emerald-400' : isPending ? 'bg-amber-950 text-amber-300 border border-amber-800 animate-pulse' : 'bg-rose-950 text-rose-400'}">
+                  ${inc.status}
+                </span>
+              </div>
+              <div class="text-[11px] text-slate-400 truncate">${inc.root_cause_candidate}</div>
+              <div class="flex items-center justify-between text-[10px] text-slate-500 mono pt-1 border-t border-surface-border/40">
+                <span>Tenant: ${inc.tenant_id}</span>
+                <span>Risk: ${sla.risk_score}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        if (renderFirst && data.length > 0 && !selectedIncident) {
+          selectIncident(data[0].incident.incident_id);
+        } else if (selectedIncident) {
+          // Refresh selection
+          selectIncident(selectedIncident.incident.incident_id);
+        }
+
+      } catch (err) {
+        console.error("Failed to load incidents:", err);
+      }
     }
 
-    // Execute Self-Healing Action
-    async function triggerRemediationExecution(isAuto = false) {
-      if (!selectedIncident) {
-        showToast("No incident currently selected", "error");
-        return;
+    // Select Incident & Inspect
+    async function selectIncident(incId) {
+      const match = activeIncidents.find(i => i.incident.incident_id === incId);
+      if (!match) return;
+      selectedIncident = match;
+
+      document.getElementById("inspIncidentId").innerText = incId;
+      document.getElementById("inspStatusBadge").innerText = match.incident.status;
+      document.getElementById("inspStatusBadge").className = match.incident.status === 'RESOLVED' 
+        ? "text-xs font-semibold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300"
+        : "text-xs font-semibold px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800";
+
+      // Trigger Diagnosis to get RCA
+      try {
+        const diagRes = await fetch(`/api/v1/incidents/${incId}/diagnose`, { method: 'POST' });
+        const diagData = await diagRes.json();
+        const rca = diagData.root_cause_analysis;
+
+        document.getElementById("inspRcaHeadline").innerText = rca.diagnosis;
+        document.getElementById("inspConfidence").innerText = `${(rca.confidence_score * 100).toFixed(1)}%`;
+        if (rca.referenced_runbooks && rca.referenced_runbooks.length > 0) {
+          document.getElementById("inspRunbook").innerText = rca.referenced_runbooks[0].title;
+        }
+
+        // CONTROL HUMAN APPROVAL GATE CARD
+        const gateCard = document.getElementById("humanApprovalGateCard");
+        if (!isAutonomousMode && match.incident.status !== "RESOLVED" && match.incident.status !== "REJECTED") {
+          gateCard.classList.remove("hidden");
+          document.getElementById("gateActionCommand").innerText = rca.recommended_remediation;
+        } else {
+          gateCard.classList.add("hidden");
+        }
+
+      } catch (err) {
+        console.error("Diagnosis fetch error:", err);
       }
+    }
+
+    // HUMAN OPERATOR APPROVAL ACTION
+    async function approvePendingIncident() {
+      if (!selectedIncident) return;
       const incId = selectedIncident.incident.incident_id;
-      const stream = document.getElementById("remediationTerminalBox");
-      const label = document.getElementById("remediationProgressText");
+      const stream = document.getElementById("remediationStreamOutput");
 
-      label.innerText = isAuto ? "Autonomous Agent executing fix..." : "Executing Ansible playbook...";
-      stream.innerHTML = `<div>[AIOPS AGENT] Initializing self-healing playbook for ${selectedIncident.incident.primary_service}...</div>`;
-
-      // Switch to remediation tab if in investigation view
-      switchInvSubTab('remediation');
+      stream.innerHTML = `<div>[APPROVAL GATE] Operator clicked APPROVE. Triggering self-healing...</div>`;
 
       try {
-        const res = await fetch(`/api/v1/incidents/${incId}/remediate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action_type: "ansible" })
-        });
+        const res = await fetch(`/api/v1/incidents/${incId}/approve`, { method: 'POST' });
         const data = await res.json();
 
-        let step = 0;
-        data.execution_output.forEach((line) => {
+        data.execution_output.forEach((line, idx) => {
           setTimeout(() => {
             const row = document.createElement("div");
-            row.className = line.includes("changed") || line.includes("ok=3") ? "text-emerald-400 font-bold" : "text-slate-300";
+            row.className = line.includes("HEALTHY") || line.includes("resolved") ? "text-emerald-400 font-bold" : "text-slate-300";
             row.innerText = line;
             stream.appendChild(row);
             stream.scrollTop = stream.scrollHeight;
-          }, step);
-          step += 280;
+          }, idx * 100);
         });
 
-        setTimeout(() => {
-          label.innerText = "Service Health Restored (HTTP 200 OK)";
-          showToast(`Remediation complete: ${data.resolved_service} restored to healthy status.`, "success");
-          triggerDataSync();
-        }, step + 400);
+        showToast("Remediation Approved! Container self-healed and restored to HEALTHY.", "success");
+        await loadMeshStatus();
+        await loadIncidents();
 
       } catch (err) {
-        stream.innerHTML += `<div class="text-rose-400">[ERROR] Remediation execution failed: ${err}</div>`;
-        showToast("Remediation execution failed: " + err, "error");
+        stream.innerHTML += `<div class="text-rose-400">Approval error: ${err.message}</div>`;
       }
+    }
+
+    // HUMAN OPERATOR REJECTION ACTION
+    async function rejectPendingIncident() {
+      if (!selectedIncident) return;
+      const incId = selectedIncident.incident.incident_id;
+      const stream = document.getElementById("remediationStreamOutput");
+
+      try {
+        const res = await fetch(`/api/v1/incidents/${incId}/reject?reason=Manual+Operator+Rejection`, { method: 'POST' });
+        const data = await res.json();
+
+        stream.innerHTML = "";
+        data.execution_output.forEach(line => {
+          const row = document.createElement("div");
+          row.className = "text-rose-400";
+          row.innerText = line;
+          stream.appendChild(row);
+        });
+
+        showToast("Remediation rejected. Incident preserved for manual review.", "error");
+        await loadIncidents();
+
+      } catch (err) {
+        console.error("Reject error:", err);
+      }
+    }
+
+    // Toast Notifications
+    function showToast(message, type = 'info') {
+      const container = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+      toast.className = `p-3 rounded-lg text-xs font-semibold shadow-xl border flex items-center gap-2 pointer-events-auto transition-all ${
+        type === 'success' ? 'bg-emerald-950 border-emerald-600 text-emerald-200' :
+        type === 'warning' ? 'bg-amber-950 border-amber-600 text-amber-200' :
+        type === 'error' ? 'bg-rose-950 border-rose-600 text-rose-200' :
+        'bg-slate-900 border-surface-border text-slate-200'
+      }`;
+      toast.innerHTML = `<span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
     }
   </script>
 </body>

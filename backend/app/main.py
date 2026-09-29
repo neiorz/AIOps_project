@@ -14,6 +14,7 @@ from app.api.incidents import router as incidents_router
 from app.api.rag import router as rag_router
 from app.api.chaos import router as chaos_router
 from app.api.benchmarks import router as benchmarks_router
+from app.api.mesh import router as mesh_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,6 +30,15 @@ async def lifespan(app: FastAPI):
         logger.info(f"RAG Knowledge Base initialized with {count} runbooks.")
     except Exception as e:
         logger.error(f"Failed to auto-index runbooks at startup: {e}")
+
+    try:
+        from app.mesh.manager import get_mesh_manager
+        mgr = get_mesh_manager()
+        mgr.start_all()
+        logger.info("Real Microservice Mesh active on ports 8081-8084 & 6380.")
+    except Exception as e:
+        logger.error(f"Failed to start microservice mesh: {e}")
+
     yield
     logger.info("Shutting down AIOps Platform Engine...")
 
@@ -55,6 +65,7 @@ app.include_router(incidents_router, prefix=settings.API_V1_PREFIX)
 app.include_router(rag_router, prefix=settings.API_V1_PREFIX)
 app.include_router(chaos_router, prefix=settings.API_V1_PREFIX)
 app.include_router(benchmarks_router, prefix=settings.API_V1_PREFIX)
+app.include_router(mesh_router, prefix=settings.API_V1_PREFIX)
 
 # Serve built React dashboard or embedded single-page app
 DASHBOARD_HTML_FILE = Path(__file__).resolve().parent.parent / "static" / "index.html"

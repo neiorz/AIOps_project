@@ -57,6 +57,10 @@ async def inject_chaos(req: ChaosInjectionRequest):
     experiment_id = f"chaos_{req.service}_{int(time.time())}"
     injected_at = time.time()
 
+    # Inject REAL fault against local running microservice
+    from app.mesh.manager import get_mesh_manager
+    real_mesh_result = get_mesh_manager().inject_real_fault(req.service, req.experiment_type)
+
     # Record Ground Truth in Ledger
     ledger_entry = {
         "experiment_id": experiment_id,
@@ -66,11 +70,12 @@ async def inject_chaos(req: ChaosInjectionRequest):
         "ground_truth_cause": sig["ground_truth_cause"],
         "expected_symptom": sig["symptom"],
         "injected_at": injected_at,
-        "status": "ACTIVE"
+        "status": "ACTIVE",
+        "real_mesh_action": real_mesh_result
     }
     ground_truth_ledger.insert(0, ledger_entry)
 
-    # Simulate Cascading Alert Storm (500 alerts simulated as a storm burst)
+    # Trigger Cascading Alert Storm
     engine = get_correlation_engine()
     
     # Primary culprit alert
@@ -80,7 +85,7 @@ async def inject_chaos(req: ChaosInjectionRequest):
         service=req.service,
         severity=sig["severity"],
         tenant_id=req.tenant_id,
-        description=f"Direct failure: {sig['ground_truth_cause']} on {req.service}"
+        description=f"REAL FAULT: {real_mesh_result.get('message', sig['ground_truth_cause'])}"
     )
     incident = engine.correlate(primary_alert)
 
