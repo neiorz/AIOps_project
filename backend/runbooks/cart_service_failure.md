@@ -37,3 +37,4 @@ The cart service is suffering from CPU starvation and thread saturation. This is
 ## Verification
 - Confirm `GET /health` on port 8082 returns `status: HEALTHY`.
 - Confirm Prometheus `process_cpu_percent{service="cart-service"}` returns to normal baseline (< 5%).
+
