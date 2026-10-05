@@ -1,5 +1,5 @@
 # Production-Ready Multi-Architecture Microservices Manifest (ARM64 & AMD64 Compatible)
-# Services: frontend, cartservice, paymentservice, productcatalogservice, emailservice, redis-cart
+# Services: frontend, cartservice, paymentservice, productcatalogservice, redis-cart
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -29,14 +29,37 @@ spec:
         command: ["python3", "-c"]
         args:
         - |
-          import http.server, socketserver, json
+          import http.server, socketserver, json, time, os, sys, threading
+
+          def stress_worker():
+              while True:
+                  if os.path.exists('/tmp/cpu_stress'):
+                      _ = [x * x for x in range(35000)]
+                  else:
+                      time.sleep(0.5)
+
+          for _ in range(4):
+              threading.Thread(target=stress_worker, daemon=True).start()
+
           class H(http.server.BaseHTTPRequestHandler):
               def do_GET(self):
+                  if os.path.exists('/tmp/latency_ms'):
+                      try:
+                          with open('/tmp/latency_ms') as f:
+                              ms = float(f.read().strip())
+                          time.sleep(ms / 1000.0)
+                          sys.stderr.write(f"[{time.strftime('%X')}] [WARN] NetworkChaos Latency: delayed cart-service response by {ms}ms\n")
+                          sys.stderr.flush()
+                      except Exception:
+                          pass
                   self.send_response(200)
                   self.send_header("Content-Type", "application/json")
                   self.end_headers()
                   self.wfile.write(b'{"service":"cart-service","status":"HEALTHY","items":[]}\n')
+                  sys.stderr.write(f"[{time.strftime('%X')}] HTTP GET {self.path} 200 OK\n")
+                  sys.stderr.flush()
               def log_message(self, *a): pass
+
           socketserver.TCPServer(("", 7070), H).serve_forever()
         ports:
         - containerPort: 7070
@@ -45,8 +68,8 @@ spec:
             cpu: 50m
             memory: 32Mi
           limits:
-            cpu: 250m
-            memory: 128Mi
+            cpu: 1000m
+            memory: 256Mi
 ---
 apiVersion: v1
 kind: Service
@@ -87,14 +110,37 @@ spec:
         command: ["python3", "-c"]
         args:
         - |
-          import http.server, socketserver, json
+          import http.server, socketserver, json, time, os, sys, threading
+
+          def stress_worker():
+              while True:
+                  if os.path.exists('/tmp/cpu_stress'):
+                      _ = [x * x for x in range(35000)]
+                  else:
+                      time.sleep(0.5)
+
+          for _ in range(4):
+              threading.Thread(target=stress_worker, daemon=True).start()
+
           class H(http.server.BaseHTTPRequestHandler):
               def do_GET(self):
+                  if os.path.exists('/tmp/latency_ms'):
+                      try:
+                          with open('/tmp/latency_ms') as f:
+                              ms = float(f.read().strip())
+                          time.sleep(ms / 1000.0)
+                          sys.stderr.write(f"[{time.strftime('%X')}] [WARN] NetworkChaos Latency: delayed payment-service response by {ms}ms\n")
+                          sys.stderr.flush()
+                      except Exception:
+                          pass
                   self.send_response(200)
                   self.send_header("Content-Type", "application/json")
                   self.end_headers()
                   self.wfile.write(b'{"service":"payment-service","status":"HEALTHY","currency":"USD"}\n')
+                  sys.stderr.write(f"[{time.strftime('%X')}] HTTP GET {self.path} 200 OK\n")
+                  sys.stderr.flush()
               def log_message(self, *a): pass
+
           socketserver.TCPServer(("", 50051), H).serve_forever()
         ports:
         - containerPort: 50051
@@ -103,8 +149,8 @@ spec:
             cpu: 50m
             memory: 32Mi
           limits:
-            cpu: 250m
-            memory: 128Mi
+            cpu: 1000m
+            memory: 256Mi
 ---
 apiVersion: v1
 kind: Service
@@ -145,14 +191,37 @@ spec:
         command: ["python3", "-c"]
         args:
         - |
-          import http.server, socketserver, json
+          import http.server, socketserver, json, time, os, sys, threading
+
+          def stress_worker():
+              while True:
+                  if os.path.exists('/tmp/cpu_stress'):
+                      _ = [x * x for x in range(35000)]
+                  else:
+                      time.sleep(0.5)
+
+          for _ in range(4):
+              threading.Thread(target=stress_worker, daemon=True).start()
+
           class H(http.server.BaseHTTPRequestHandler):
               def do_GET(self):
+                  if os.path.exists('/tmp/latency_ms'):
+                      try:
+                          with open('/tmp/latency_ms') as f:
+                              ms = float(f.read().strip())
+                          time.sleep(ms / 1000.0)
+                          sys.stderr.write(f"[{time.strftime('%X')}] [WARN] NetworkChaos Latency: delayed frontend response by {ms}ms\n")
+                          sys.stderr.flush()
+                      except Exception:
+                          pass
                   self.send_response(200)
                   self.send_header("Content-Type", "application/json")
                   self.end_headers()
                   self.wfile.write(b'{"service":"frontend","status":"HEALTHY","gateway":"active"}\n')
+                  sys.stderr.write(f"[{time.strftime('%X')}] HTTP GET {self.path} 200 OK\n")
+                  sys.stderr.flush()
               def log_message(self, *a): pass
+
           socketserver.TCPServer(("", 8080), H).serve_forever()
         ports:
         - containerPort: 8080
@@ -161,8 +230,8 @@ spec:
             cpu: 50m
             memory: 32Mi
           limits:
-            cpu: 250m
-            memory: 128Mi
+            cpu: 1000m
+            memory: 256Mi
 ---
 apiVersion: v1
 kind: Service
@@ -203,14 +272,37 @@ spec:
         command: ["python3", "-c"]
         args:
         - |
-          import http.server, socketserver, json
+          import http.server, socketserver, json, time, os, sys, threading
+
+          def stress_worker():
+              while True:
+                  if os.path.exists('/tmp/cpu_stress'):
+                      _ = [x * x for x in range(35000)]
+                  else:
+                      time.sleep(0.5)
+
+          for _ in range(4):
+              threading.Thread(target=stress_worker, daemon=True).start()
+
           class H(http.server.BaseHTTPRequestHandler):
               def do_GET(self):
+                  if os.path.exists('/tmp/latency_ms'):
+                      try:
+                          with open('/tmp/latency_ms') as f:
+                              ms = float(f.read().strip())
+                          time.sleep(ms / 1000.0)
+                          sys.stderr.write(f"[{time.strftime('%X')}] [WARN] NetworkChaos Latency: delayed productcatalog-service response by {ms}ms\n")
+                          sys.stderr.flush()
+                      except Exception:
+                          pass
                   self.send_response(200)
                   self.send_header("Content-Type", "application/json")
                   self.end_headers()
                   self.wfile.write(b'{"service":"productcatalog-service","status":"HEALTHY","products":10}\n')
+                  sys.stderr.write(f"[{time.strftime('%X')}] HTTP GET {self.path} 200 OK\n")
+                  sys.stderr.flush()
               def log_message(self, *a): pass
+
           socketserver.TCPServer(("", 3550), H).serve_forever()
         ports:
         - containerPort: 3550
@@ -219,8 +311,8 @@ spec:
             cpu: 50m
             memory: 32Mi
           limits:
-            cpu: 250m
-            memory: 128Mi
+            cpu: 1000m
+            memory: 256Mi
 ---
 apiVersion: v1
 kind: Service
@@ -265,8 +357,8 @@ spec:
             cpu: 50m
             memory: 32Mi
           limits:
-            cpu: 200m
-            memory: 128Mi
+            cpu: 1000m
+            memory: 256Mi
 ---
 apiVersion: v1
 kind: Service
