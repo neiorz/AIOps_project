@@ -17,6 +17,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 COPY app/ ./app/
 COPY runbooks/ ./runbooks/
+# P0.11: without this the container serves the "Dashboard HTML is initializing..."
+# placeholder instead of the real UI.
+COPY static/ ./static/
 
 EXPOSE 8000
 

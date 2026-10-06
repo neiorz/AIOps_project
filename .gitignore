@@ -31,3 +31,19 @@ dist/
 .env
 *.local
 
+# --- Phase 0 additions (P0.10) ---
+# ML model artifacts (Track T5) - large binaries, retrain instead of commit
+*.joblib
+*.pkl
+*.onnx
+*.parquet
+backend/app/ml/reports/
+
+# Streamlit (Track T6)
+.streamlit/secrets.toml
+ui/.streamlit/secrets.toml
+
+# Local experiment output
+artifacts/
+reports/
+

@@ -5,6 +5,7 @@ from app.rag.retriever import get_runbook_retriever
 from app.correlation.engine import CorrelatedIncident
 from app.sla.calculator import SLARiskCalculator
 from app.tools.telemetry import TelemetryTools
+from app.tools.counters import record_investigation
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,9 @@ class AutonomousSREAgent:
         remediation_action = f"ansible-playbook ansible/restart_service.yml -e service={incident.primary_service}"
 
         investigation_duration = round(time.time() - investigation_start, 3)
+
+        # Real counter: feeds avg_tool_calls_per_rca in the benchmark scorecard.
+        record_investigation([e["tool"] for e in evidence])
 
         return {
             "incident_id": incident.incident_id,

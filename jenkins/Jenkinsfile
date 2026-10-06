@@ -48,8 +48,19 @@ pipeline {
             steps {
                 echo "Querying AIOps Platform Ground Truth Ledger & Accuracy..."
                 sh '''
-                    curl -s -f http://aiops-backend:8000/api/v1/benchmarks/latest || echo "Benchmark running..."
+                    set -e
+                    # P0.11: /benchmarks/latest never existed (404), and the old
+                    # `|| echo` swallowed the failure so the stage passed silently.
+                    # -f now fails the build on a real HTTP error.
+                    BASE="${AIOPS_BACKEND_URL:-http://localhost:8000}"
+                    URL="$BASE/api/v1/benchmarks/scorecard"
+                    echo "Fetching scorecard: $URL"
+                    curl -sS -f "$URL" -o scorecard.json
+                    echo "Scorecard:"
+                    cat scorecard.json
+                    echo ""
                 '''
+                archiveArtifacts artifacts: 'scorecard.json', allowEmptyArchive: true
             }
         }
     }

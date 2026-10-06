@@ -20,6 +20,8 @@ from app.api.rag import router as rag_router
 from app.api.chaos import router as chaos_router
 from app.api.benchmarks import router as benchmarks_router
 from app.api.mesh import router as mesh_router
+from app.api.anomalies import router as anomalies_router
+from app.api.llm import router as llm_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -71,6 +73,9 @@ app.include_router(rag_router, prefix=settings.API_V1_PREFIX)
 app.include_router(chaos_router, prefix=settings.API_V1_PREFIX)
 app.include_router(benchmarks_router, prefix=settings.API_V1_PREFIX)
 app.include_router(mesh_router, prefix=settings.API_V1_PREFIX)
+# Phase 0 (P0.12): contract stubs so Tracks T3/T5/T6 can build in parallel.
+app.include_router(anomalies_router, prefix=settings.API_V1_PREFIX)
+app.include_router(llm_router, prefix=settings.API_V1_PREFIX)
 
 # Serve built React dashboard or embedded single-page app
 DASHBOARD_HTML_FILE = Path(__file__).resolve().parent.parent / "static" / "index.html"

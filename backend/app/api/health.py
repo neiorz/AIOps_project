@@ -81,15 +81,16 @@ def get_service_topology() -> Dict[str, Any]:
     services: List[Dict[str, Any]] = []
     for svc in LOCAL_MESH_SERVICES:
         live = mesh_state.get(svc["name"], {})
-        bound = bool(live.get("status")) and live.get("status") != "UNKNOWN"
+        live_status = live.get("status")
         degraded = svc["name"] in unresolved_services
 
-        if not bound:
-            status = "NOT_RUNNING"
-        elif degraded:
-            status = "DEGRADED"
+        if live_status == "HEALTHY":
+            status = "DEGRADED" if degraded else "HEALTHY"
         else:
-            status = "HEALTHY"
+            # Missing, UNKNOWN or CRASHED -> the process is not serving traffic.
+            status = "NOT_RUNNING"
+
+        bound = live_status is not None and live_status != "UNKNOWN"
 
         services.append({
             **svc,
