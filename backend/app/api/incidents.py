@@ -1,16 +1,37 @@
 import time
 import logging
 import os
+import shutil
 import subprocess
+from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
+from app.config import settings
 from app.correlation.engine import get_correlation_engine, CorrelatedIncident
 from app.sla.calculator import SLARiskCalculator
 from app.agent.sre_agent import get_sre_agent
 from app.mesh.manager import get_mesh_manager
 
 logger = logging.getLogger(__name__)
+
+# Repository root (backend/app/api/incidents.py -> ../../..)
+REPO_ROOT = Path(settings.BASE_DIR).resolve().parent
+
+
+def resolve_ansible_playbook() -> str:
+    """
+    Locate the ansible-playbook binary portably instead of hardcoding a path
+    from another developer's machine.
+    """
+    override = os.environ.get("ANSIBLE_PLAYBOOK_BIN")
+    if override:
+        return override
+    # Prefer the active virtualenv, then fall back to PATH.
+    venv_bin = Path(settings.BASE_DIR) / ".venv" / "bin" / "ansible-playbook"
+    if venv_bin.is_file():
+        return str(venv_bin)
+    return shutil.which("ansible-playbook") or "ansible-playbook"
 
 router = APIRouter(prefix="/incidents", tags=["Incidents & Human Approval"])
 
@@ -159,8 +180,8 @@ def approve_incident_remediation(incident_id: str):
     mgr = get_mesh_manager()
     mesh_res = mgr.remediate_service(service)
 
-    # 2. Execute REAL Ansible Playbook via subprocess
-    ansible_bin = "/home/moha/.gemini/antigravity/scratch/aiops-platform/backend/.venv/bin/ansible-playbook"
+    # 2. Execute REAL Ansible Playbook via subprocess (portable paths)
+    ansible_bin = resolve_ansible_playbook()
     env = dict(os.environ)
     env["ANSIBLE_LOCAL_TEMP"] = "/tmp/ansible-local"
     env["ANSIBLE_REMOTE_TEMP"] = "/tmp/ansible-remote"
@@ -169,7 +190,7 @@ def approve_incident_remediation(incident_id: str):
     try:
         ans_proc = subprocess.run(
             [ansible_bin, "ansible/restart_service.yml", "-e", f"service={service}"],
-            cwd="/home/moha/Downloads/aiops-platform",
+            cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,
             timeout=15,

@@ -110,8 +110,8 @@ async def inject_chaos(req: ChaosInjectionRequest):
         )
         incident = engine.correlate(dep_alert)
 
-    # Artificially simulate 500+ raw telemetry alerts grouped into this incident
-    incident.total_alerts = max(incident.total_alerts, 542)
+    # Alert count is whatever the correlation engine actually observed.
+    # (Previously this was padded with max(..., 542) to fake a 500+ alert storm.)
 
     # Trigger Autonomous AI Agent diagnosis asynchronously
     agent = get_sre_agent()

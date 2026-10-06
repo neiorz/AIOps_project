@@ -1,7 +1,9 @@
 import httpx
 import logging
+from pathlib import Path
 from typing import Dict, Any, Optional
 from app.config import settings
+from app.tools.counters import record_tool_call
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +19,7 @@ class TelemetryTools:
     @classmethod
     async def query_prometheus(cls, query: str) -> Dict[str, Any]:
         """Execute a PromQL instant query against Prometheus."""
+        record_tool_call("promql")
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(
@@ -33,6 +36,7 @@ class TelemetryTools:
     @classmethod
     async def query_loki(cls, query: str, limit: int = 50) -> Dict[str, Any]:
         """Execute a LogQL query against Grafana Loki."""
+        record_tool_call("logql")
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(
@@ -49,6 +53,7 @@ class TelemetryTools:
     @classmethod
     async def query_tempo(cls, trace_id: str) -> Dict[str, Any]:
         """Fetch trace details from Grafana Tempo."""
+        record_tool_call("traceql")
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(f"{settings.TEMPO_URL}/api/traces/{trace_id}")
@@ -63,6 +68,7 @@ class TelemetryTools:
     def get_k8s_pod_status(cls, service_name: str, namespace: str = "default") -> Dict[str, Any]:
         """Fetch pod statuses and restart counts from Kubernetes API."""
         import os
+        record_tool_call("k8s_api")
         try:
             from kubernetes import client, config
             loaded = False
@@ -76,7 +82,7 @@ class TelemetryTools:
                 possible_configs = [
                     os.environ.get("KUBECONFIG"),
                     os.path.expanduser("~/.kube/config"),
-                    "/home/moha/.kube/config",
+                    str(Path.home() / ".kube" / "config"),
                     "/root/.kube/config",
                     "/etc/rancher/k3s/k3s.yaml"
                 ]

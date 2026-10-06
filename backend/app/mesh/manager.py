@@ -36,13 +36,13 @@ logger = logging.getLogger(__name__)
 
 SERVICES_METADATA = {
     "payment-service": {
-        "port": 8081,
+        "port": 8181,
         "language": "Go",
         "role": "Credit Card Processing & Authorization Gateway",
         "dependencies": ["checkout-service"]
     },
     "cart-service": {
-        "port": 8082,
+        "port": 8182,
         "language": "C# / .NET",
         "role": "User Shopping Cart & Session Persistence",
         "dependencies": ["redis-cart"]
@@ -208,6 +208,10 @@ class LiveMicroservice:
             return True
         except Exception as e:
             logger.error(f"Failed to start microservice '{self.name}' on port {self.port}: {e}")
+            # Critical: a service that failed to bind must NOT report as HEALTHY.
+            # Leaving is_running=True previously caused /mesh/status and
+            # /mesh/metrics to emit service_up=1 for services that never bound.
+            self.is_running = False
             return False
 
     def kill_pod(self):

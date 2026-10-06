@@ -12,3 +12,27 @@ kubernetes>=29.0.0
 python-dotenv>=1.0.1
 pyyaml>=6.0.1
 
+# =============================================================================
+# Pre-seeded in Phase 0 (P0.7) so Phase 1 tracks never edit this file.
+# Each block is owned by the track noted. Installing them all up-front is what
+# lets T1-T7 run in parallel without fighting over requirements.txt.
+# =============================================================================
+
+# --- Track T2 : Persistence layer -------------------------------------------
+sqlalchemy>=2.0.25
+psycopg[binary]>=3.1.18
+
+# --- Track T3 : Local LLM + RAG generation ----------------------------------
+ollama>=0.4.0
+
+# --- Track T4 : Agent telemetry tools (PromQL/LogQL/TraceQL) ----------------
+prometheus-api-client>=0.6.0
+
+# --- Track T5 : Anomaly detection (Isolation Forest) ------------------------
+scikit-learn>=1.4.0
+joblib>=1.3.2
+pandas>=2.2.0
+
+# --- Track T6 : Streamlit dashboard -----------------------------------------
+streamlit>=1.35.0
+plotly>=5.20.0

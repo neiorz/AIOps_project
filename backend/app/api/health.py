@@ -1,9 +1,29 @@
 from fastapi import APIRouter
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.config import settings
 from app.correlation.engine import get_correlation_engine
 
 router = APIRouter(tags=["Health"])
+
+# Services that run as real local processes in the AIOps microservice mesh.
+LOCAL_MESH_SERVICES: List[Dict[str, Any]] = [
+    {"name": "payment-service",      "language": "Go",           "port": 8081, "tier": "Transaction Core"},
+    {"name": "cart-service",         "language": "C# (.NET)",    "port": 8082, "tier": "Core Service"},
+    {"name": "frontend",             "language": "Go",           "port": 8083, "tier": "Ingress Gateway"},
+    {"name": "productcatalog-service", "language": "Go",         "port": 8084, "tier": "Catalog API"},
+    {"name": "redis-cart",           "language": "Redis",        "port": 6380, "tier": "Cache & State"},
+]
+
+# Declared in the Online Boutique manifest but NOT part of the local mesh.
+# Reported as not-deployed rather than with invented latency/replica numbers.
+REMOTE_ONLY_SERVICES: List[Dict[str, Any]] = [
+    {"name": "checkout-service",         "language": "Go",      "tier": "Order Orchestration"},
+    {"name": "recommendation-service",   "language": "Python",  "tier": "ML Recommender"},
+    {"name": "shipping-service",         "language": "Go",      "tier": "Logistics Dispatch"},
+    {"name": "email-service",            "language": "Python",  "tier": "Notification Queue"},
+    {"name": "ad-service",               "language": "Java",    "tier": "Ad Delivery"},
+]
+
 
 @router.get("/health")
 def health_check():
@@ -14,45 +34,95 @@ def health_check():
         "mode": "autonomous"
     }
 
+
+def _k8s_cluster_name() -> Optional[str]:
+    """Best-effort cluster name from the active kubeconfig; None if unavailable."""
+    try:
+        from kubernetes import config as k8s_config
+        try:
+            k8s_config.load_incluster_config()
+            return "in-cluster"
+        except Exception:
+            pass
+        rules = k8s_config.list_kube_config_contexts()
+        if rules and rules[1]:
+            return f"kubecontext:{rules[1].get('name', 'unknown')}"
+    except Exception:
+        return None
+    return None
+
+
 @router.get("/topology")
-def get_service_topology():
+def get_service_topology() -> Dict[str, Any]:
     """
-    Returns live topology and health state for all 10 microservices
-    in Google Cloud Online Boutique plus Redis session cache.
+    Live topology built from ACTUAL process state.
+
+    Every field is either read from the running local mesh (real CPU / memory /
+    request counters / health) or explicitly marked as not-deployed. No
+    replicas, latency or throughput values are invented.
     """
     engine = get_correlation_engine()
     incidents = engine.get_all_incidents()
-    unresolved = [i for i in incidents if i.status != "RESOLVED"]
+    unresolved = [i for i in incidents if i.status not in ("RESOLVED", "REJECTED")]
     unresolved_services = set()
     for inc in unresolved:
         unresolved_services.add(inc.primary_service)
-        for aff in inc.affected_services:
-            unresolved_services.add(aff)
+        unresolved_services.update(inc.affected_services)
 
-    services_catalog = [
-        {"name": "frontend", "language": "Go", "port": 80, "tier": "Ingress Gateway", "replicas": "3/3", "latency_p99": "48ms", "memory_mb": 112},
-        {"name": "cart-service", "language": "C# (.NET)", "port": 7070, "tier": "Core Service", "replicas": "2/2", "latency_p99": "24ms", "memory_mb": 184},
-        {"name": "payment-service", "language": "Go", "port": 50051, "tier": "Transaction Core", "replicas": "2/2", "latency_p99": "32ms", "memory_mb": 96},
-        {"name": "productcatalog-service", "language": "Go", "port": 3550, "tier": "Catalog API", "replicas": "2/2", "latency_p99": "18ms", "memory_mb": 88},
-        {"name": "redis-cart", "language": "Redis", "port": 6379, "tier": "Cache & State", "replicas": "1/1", "latency_p99": "1.2ms", "memory_mb": 64},
-        {"name": "checkout-service", "language": "Go", "port": 5050, "tier": "Order Orchestration", "replicas": "2/2", "latency_p99": "54ms", "memory_mb": 128},
-        {"name": "recommendation-service", "language": "Python", "port": 8080, "tier": "ML Recommender", "replicas": "2/2", "latency_p99": "38ms", "memory_mb": 240},
-        {"name": "shipping-service", "language": "Go", "port": 50051, "tier": "Logistics Dispatch", "replicas": "2/2", "latency_p99": "22ms", "memory_mb": 76},
-        {"name": "email-service", "language": "Python", "port": 8080, "tier": "Notification Queue", "replicas": "1/1", "latency_p99": "14ms", "memory_mb": 92},
-        {"name": "ad-service", "language": "Java", "port": 9555, "tier": "Ad Delivery", "replicas": "2/2", "latency_p99": "29ms", "memory_mb": 210},
-    ]
+    # Real, measured state of the local mesh
+    mesh_state: Dict[str, Dict[str, Any]] = {}
+    try:
+        from app.mesh.manager import get_mesh_manager
+        for entry in get_mesh_manager().get_mesh_status():
+            mesh_state[entry.get("service")] = entry
+    except Exception:
+        pass
 
-    for s in services_catalog:
-        if s["name"] in unresolved_services:
-            s["status"] = "DEGRADED"
-            s["latency_p99"] = "1380ms"
+    services: List[Dict[str, Any]] = []
+    for svc in LOCAL_MESH_SERVICES:
+        live = mesh_state.get(svc["name"], {})
+        bound = bool(live.get("status")) and live.get("status") != "UNKNOWN"
+        degraded = svc["name"] in unresolved_services
+
+        if not bound:
+            status = "NOT_RUNNING"
+        elif degraded:
+            status = "DEGRADED"
         else:
-            s["status"] = "HEALTHY"
+            status = "HEALTHY"
+
+        services.append({
+            **svc,
+            "source": "local-mesh",
+            "status": status,
+            "bound": bound,
+            # Only populated when the process actually reported them:
+            "cpu_percent": live.get("cpu_percent"),
+            "memory_mb": live.get("memory_mb"),
+            "requests_total": live.get("requests_total"),
+            "uptime_seconds": live.get("uptime_seconds"),
+        })
+
+    for svc in REMOTE_ONLY_SERVICES:
+        services.append({
+            **svc,
+            "port": None,
+            "source": "manifest-only",
+            "status": "NOT_DEPLOYED" if svc["name"] not in unresolved_services else "DEGRADED",
+            "bound": False,
+            "cpu_percent": None,
+            "memory_mb": None,
+            "requests_total": None,
+            "uptime_seconds": None,
+        })
 
     return {
-        "cluster_name": "k3s-aiops-production",
-        "total_microservices": len(services_catalog),
-        "healthy_count": sum(1 for s in services_catalog if s["status"] == "HEALTHY"),
-        "degraded_count": sum(1 for s in services_catalog if s["status"] != "HEALTHY"),
-        "services": services_catalog
+        "cluster_name": _k8s_cluster_name(),
+        "deployment_mode": "local-process-mesh",
+        "total_microservices": len(services),
+        "healthy_count": sum(1 for s in services if s["status"] == "HEALTHY"),
+        "degraded_count": sum(1 for s in services if s["status"] == "DEGRADED"),
+        "not_running_count": sum(1 for s in services if s["status"] == "NOT_RUNNING"),
+        "not_deployed_count": sum(1 for s in services if s["status"] == "NOT_DEPLOYED"),
+        "services": services,
     }
