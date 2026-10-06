@@ -1,15 +1,18 @@
 """
 ANOMALY DETECTION API — interface contract (owned by Track T5).
 
-This file is a PHASE 0 STUB. It fixes the request/response schema so that:
-  * Track T5 can implement the real Isolation Forest logic,
-  * Track T6 (Streamlit) can build its UI against a stable contract,
-  * both can proceed in parallel without renegotiating shapes.
+Phase 0 fixed the request/response schema so T5 and T6 could build in
+parallel. This file is T5's implementation: the SCHEMAS below are unchanged,
+only the handler bodies were filled in.
 
-Track T5 replaces the bodies of these handlers; the schemas stay.
+Live behaviour:
+  GET  /anomalies        -> model status + persisted anomalies + recent series
+  POST /anomalies/score  -> 409 until a model exists, otherwise scores a batch
+  POST /anomalies/train  -> fits IsolationForest on app/ml/data/features.csv
 """
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter
+
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.config import settings
@@ -66,29 +69,79 @@ class TrainResponse(BaseModel):
 @router.get("", response_model=Dict[str, Any])
 def get_anomalies() -> Dict[str, Any]:
     """Current model status plus detected anomalies (most recent first)."""
+    from app.ml.collector import load_features
+    from app.ml.scoring import load_anomalies, model_status
+
+    status = model_status()
+    persisted = list(reversed(load_anomalies()))     # newest first
+    recent = load_features()[-200:]
+
     return {
-        "status": "STUB",
+        "status": "READY" if status["loaded"] else "UNTRAINED",
         "owner": STUB_OWNER,
-        "message": STUB_MESSAGE,
-        "model": ModelStatus().model_dump(),
-        "anomalies": [],
-        "series": [],
+        "message": ("Isolation Forest loaded — anomalies below are real detections."
+                    if status["loaded"]
+                    else "No model yet. Collect features, then POST /anomalies/train."),
+        "model": status,
+        "anomalies": persisted,
+        "series": recent,
     }
 
 
 @router.post("/score", response_model=ScoreResponse)
 def score_samples(req: ScoreRequest) -> ScoreResponse:
     """Score a batch of feature vectors with the trained model."""
+    from app.ml.scoring import append_anomalies, model_status, score
+
+    if not req.samples:
+        return ScoreResponse(status="EMPTY", model=model_status(),
+                             scored=0, anomaly_count=0, anomalies=[])
+
+    feature_dicts = [s.features for s in req.samples]
+    try:
+        scores, flags = score(feature_dicts)
+    except RuntimeError as exc:
+        # Honest failure: we never report a result the model did not produce.
+        raise HTTPException(status_code=409, detail=str(exc))
+
+    results: List[AnomalyPoint] = []
+    for sample, sc, is_anom in zip(req.samples, scores, flags):
+        results.append(sample.model_copy(update={"anomaly_score": sc, "is_anomaly": is_anom}))
+
+    # Persist only the actual detections so the timeline stays meaningful.
+    append_anomalies([p.model_dump() for p in results if p.is_anomaly])
+
     return ScoreResponse(
-        status="STUB",
-        model=ModelStatus(),
-        scored=len(req.samples),
-        anomaly_count=0,
-        anomalies=[],
+        status="SCORED",
+        model=model_status(),
+        scored=len(results),
+        anomaly_count=sum(1 for p in results if p.is_anomaly),
+        anomalies=[p for p in results if p.is_anomaly],
     )
 
 
 @router.post("/train", response_model=TrainResponse)
 def train_model() -> TrainResponse:
     """(Re)train Isolation Forest on collected telemetry."""
-    return TrainResponse(status="NOT_IMPLEMENTED", model=ModelStatus())
+    from app.ml.scoring import invalidate_cache, model_status
+    from app.ml.train import train_model as _train
+
+    try:
+        meta = _train()
+    except ValueError as exc:
+        # Too little data is a client error, not a server crash.
+        raise HTTPException(status_code=409, detail=str(exc))
+    except Exception as exc:                      # pragma: no cover - defensive
+        raise HTTPException(status_code=500, detail=f"Training failed: {exc}")
+
+    invalidate_cache()
+    ignored = meta.get("constant_features") or []
+    return TrainResponse(
+        status="TRAINED",
+        message=(f"IsolationForest fitted on {meta['n_samples']} samples; "
+                 f"flagged {meta['flagged_in_training']} in-sample; "
+                 f"contamination={meta['contamination']}"
+                 + (f". Ignored (no variance in training data): "
+                    f"{', '.join(ignored)}" if ignored else "")),
+        model=model_status(),
+    )
