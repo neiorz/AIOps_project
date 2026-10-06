@@ -6,18 +6,24 @@ keep their agreed response shape.
 """
 
 
-def test_anomaly_contract_endpoints_are_registered(test_client):
+def test_anomaly_contract_endpoints_are_registered(test_client, isolated_model,
+                                                   isolated_features):
+    """T5 has implemented these handlers, so the assertions cover the real
+    (deterministic) no-model path: isolated_model + isolated_features give us
+    a guaranteed-empty state regardless of what exists in this checkout.
+    Behaviour with a fitted model is covered in test_anomaly_detection.py."""
     # GET /api/v1/anomalies
     res = test_client.get("/api/v1/anomalies")
     assert res.status_code == 200
     body = res.json()
-    assert body["status"] == "STUB"
+    assert body["status"] == "UNTRAINED"
     assert "Track T5" in body["owner"]
     assert set(body["model"]) >= {"loaded", "algorithm", "model_path", "contamination"}
-    assert body["anomalies"] == []
-    assert body["series"] == []
+    assert body["model"]["loaded"] is False
+    assert isinstance(body["anomalies"], list)
+    assert isinstance(body["series"], list)
 
-    # POST /api/v1/anomalies/score
+    # POST /api/v1/anomalies/score — 409 until a model exists
     res = test_client.post("/api/v1/anomalies/score", json={
         "samples": [
             {"timestamp": 1.0, "service": "cart-service",
@@ -26,16 +32,13 @@ def test_anomaly_contract_endpoints_are_registered(test_client):
              "features": {"cpu_percent": 1.1}, "anomaly_score": 0.0},
         ]
     })
-    assert res.status_code == 200
-    scored = res.json()
-    assert scored["status"] == "STUB"
-    assert scored["scored"] == 2
-    assert scored["anomaly_count"] == 0
+    assert res.status_code == 409
+    assert "train" in res.json()["detail"].lower()
 
-    # POST /api/v1/anomalies/train
+    # POST /api/v1/anomalies/train — 409 while the feature store is empty
     res = test_client.post("/api/v1/anomalies/train")
-    assert res.status_code == 200
-    assert res.json()["status"] == "NOT_IMPLEMENTED"
+    assert res.status_code == 409
+    assert "sample" in res.json()["detail"].lower()
 
 
 def test_llm_contract_endpoints_are_registered(test_client):

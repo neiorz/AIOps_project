@@ -38,6 +38,10 @@ dist/
 *.onnx
 *.parquet
 backend/app/ml/reports/
+# Runtime outputs. app/ml/data/features.csv IS committed (it is the training
+# corpus); these two are regenerated on every fit / detection.
+backend/app/ml/model.meta.json
+backend/app/ml/data/anomalies.json
 
 # Streamlit (Track T6)
 .streamlit/secrets.toml
