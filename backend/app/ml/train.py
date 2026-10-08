@@ -11,7 +11,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import joblib
 import numpy as np
@@ -26,9 +26,14 @@ logger = logging.getLogger(__name__)
 MIN_SAMPLES = 12
 
 
-def model_meta_path() -> Path:
-    """Derived at call time so tests can redirect settings.ML_MODEL_PATH."""
-    return Path(settings.ML_MODEL_PATH).with_suffix(".meta.json")
+def model_meta_path(model_path: Optional[Path] = None) -> Path:
+    """Derived at call time so tests can redirect settings.ML_MODEL_PATH.
+
+    Accepts an explicit path so a candidate model's metadata lands beside
+    *that* candidate instead of overwriting the production model's record.
+    """
+    target = Path(model_path) if model_path else Path(settings.ML_MODEL_PATH)
+    return target.with_suffix(".meta.json")
 
 
 def _to_matrix(rows: List[Dict[str, Any]]) -> np.ndarray:
@@ -38,8 +43,16 @@ def _to_matrix(rows: List[Dict[str, Any]]) -> np.ndarray:
     )
 
 
-def train_model(rows: List[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Fit IsolationForest and persist it. Raises ValueError when too small."""
+def train_model(
+    rows: List[Dict[str, Any]] = None,
+    model_path: Optional[Path] = None,
+) -> Dict[str, Any]:
+    """Fit IsolationForest and persist it. Raises ValueError when too small.
+
+    ``model_path`` defaults to the production location, so ordinary training
+    behaves exactly as before. Passing a path trains a *candidate* that can be
+    evaluated against the incumbent before anything in production changes.
+    """
     if rows is None:
         rows = load_features()
     if len(rows) < MIN_SAMPLES:
@@ -74,7 +87,8 @@ def train_model(rows: List[Dict[str, Any]] = None) -> Dict[str, Any]:
     scores = model.decision_function(X)
     flagged = int((preds == -1).sum())
 
-    Path(settings.ML_MODEL_PATH).parent.mkdir(parents=True, exist_ok=True)
+    target = Path(model_path) if model_path else Path(settings.ML_MODEL_PATH)
+    target.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(
         {
             "model": model,
@@ -82,7 +96,7 @@ def train_model(rows: List[Dict[str, Any]] = None) -> Dict[str, Any]:
             "trained_at": time.time(),
             "n_samples": len(rows),
         },
-        settings.ML_MODEL_PATH,
+        target,
     )
 
     # A fresh fit must never be served from a stale cache.
@@ -99,8 +113,9 @@ def train_model(rows: List[Dict[str, Any]] = None) -> Dict[str, Any]:
         "constant_features": constant,
         "score_min": float(np.min(scores)),
         "score_max": float(np.max(scores)),
+        "model_path": str(target),
     }
-    model_meta_path().write_text(json.dumps(meta, indent=2))
+    model_meta_path(target).write_text(json.dumps(meta, indent=2))
     return meta
 
 
