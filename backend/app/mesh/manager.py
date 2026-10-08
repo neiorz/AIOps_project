@@ -348,18 +348,37 @@ class ProcessMeshManager:
             return False
         try:
             import subprocess
-            subprocess.run(
+            res = subprocess.run(
                 ["kubectl", "exec", pod_name, "-n", "default", "--", "sh", "-c", cmd],
                 capture_output=True,
                 text=True,
                 timeout=10
             )
+            if res.returncode != 0:
+                # Only a zero exit means the command actually ran in the pod.
+                # Returning True here would let callers claim an injection
+                # that never happened.
+                logger.warning(
+                    f"kubectl exec in pod {pod_name} failed "
+                    f"(rc={res.returncode}): {res.stderr.strip()}"
+                )
+                return False
             return True
         except Exception as e:
             logger.warning(f"Failed to exec command in pod {pod_name}: {e}")
             return False
 
-    def inject_real_fault(self, name: str, experiment_type: str) -> Dict[str, Any]:
+    def inject_real_fault(self, name: str, experiment_type: str,
+                          k8s_side_effects: bool = True) -> Dict[str, Any]:
+        """Apply a fault to the local mesh, optionally reaching into the cluster.
+
+        ``k8s_side_effects=False`` keeps only the local-mirror half: the
+        platform's own telemetry (mesh_status, the dashboard) then reflects
+        the fault without touching the cluster. Track T7 uses this when a
+        real Chaos Mesh CR already owns the cluster-side fault — a manual
+        pod-delete beside a PodChaos CR would both kill, and the second one
+        would take out the replacement pod.
+        """
         s = self._find_service(name)
         if not s:
             return {"status": "ERROR", "message": f"Service '{name}' not found in mesh"}
@@ -368,19 +387,28 @@ class ProcessMeshManager:
         if experiment_type in ["PodFailure", "ProcessKill", "SIGKILL"]:
             s.kill_pod()
 
-            # Execute real Kubernetes Pod Kill
-            pod_to_kill = self._get_k8s_pod_name(name)
+            # Execute real Kubernetes Pod Kill (skipped when a Chaos Mesh
+            # PodChaos CR already owns the kill)
+            pod_to_kill = self._get_k8s_pod_name(name) if k8s_side_effects else None
             if pod_to_kill:
                 try:
                     import subprocess
-                    subprocess.run(
+                    res = subprocess.run(
                         ["kubectl", "delete", "pod", pod_to_kill, "-n", "default", "--now"],
                         capture_output=True,
                         text=True,
                         timeout=10
                     )
-                    k8s_action_msg = f" Kubernetes Pod '{pod_to_kill}' terminated via kubectl."
-                    logger.info(f"Terminated real Kubernetes pod '{pod_to_kill}'")
+                    if res.returncode == 0:
+                        k8s_action_msg = f" Kubernetes Pod '{pod_to_kill}' terminated via kubectl."
+                        logger.info(f"Terminated real Kubernetes pod '{pod_to_kill}'")
+                    else:
+                        # Claim termination only when kubectl reports success;
+                        # a silent rc!=0 must not become a fake ledger entry.
+                        logger.warning(
+                            f"kubectl delete pod {pod_to_kill} failed "
+                            f"(rc={res.returncode}): {res.stderr.strip()}"
+                        )
                 except Exception as e:
                     logger.warning(f"Could not delete Kubernetes pod {pod_to_kill}: {e}")
 
@@ -398,7 +426,7 @@ class ProcessMeshManager:
             s.burn_cpu()
 
             # Trigger real CPU & RAM stress inside the Kubernetes pod
-            k8s_pod = self._get_k8s_pod_name(name)
+            k8s_pod = self._get_k8s_pod_name(name) if k8s_side_effects else None
             if k8s_pod:
                 burn_cmd = (
                     'touch /tmp/cpu_stress; '
@@ -406,8 +434,13 @@ class ProcessMeshManager:
                     '[threading.Thread(target=lambda: [exec(\\\"while os.path.exists(\\\\\\\"/tmp/cpu_stress\\\\\\\"): pass\\\") for _ in [0]]).start() for _ in range(8)]" '
                     '</dev/null >/dev/null 2>&1 &'
                 )
-                self._exec_in_k8s_pod(name, burn_cmd)
-                k8s_action_msg = f" Real CPU burner (8 threads, 95%+ CPU) injected into Kubernetes pod '{k8s_pod}'."
+                if self._exec_in_k8s_pod(name, burn_cmd):
+                    k8s_action_msg = f" Real CPU burner (8 threads, 95%+ CPU) injected into Kubernetes pod '{k8s_pod}'."
+                else:
+                    k8s_action_msg = (
+                        f" Local CPU burner active, but the stress command "
+                        f"did not reach Kubernetes pod '{k8s_pod}'."
+                    )
 
             return {
                 "status": "SUCCESS",
@@ -421,17 +454,27 @@ class ProcessMeshManager:
             s.set_latency(850)
 
             # Trigger real network latency in the Kubernetes pod pipeline
-            k8s_pod = self._get_k8s_pod_name(name)
+            k8s_pod = self._get_k8s_pod_name(name) if k8s_side_effects else None
             if k8s_pod:
                 # Set latency flag and send a probe request to trigger warning log
+                # Probe the service's own port inside the pod so its [WARN]
+                # latency log fires. The port comes from the service record
+                # (8181/8182/8083/8084/6380), keeping this aligned with the
+                # manifest instead of hardcoding upstream 7070/8080 — which
+                # is what it did before Track T7 realigned the ports.
                 latency_cmd = (
                     'echo 850 > /tmp/latency_ms; '
                     'nohup python3 -c "import urllib.request, time; time.sleep(0.1); '
-                    'urllib.request.urlopen(\\\"http://127.0.0.1:7070/\\\" if \\\"cart\\\" in \\\"' + name + '\\\" else \\\"http://127.0.0.1:8080/\\\")" '
+                    f'urllib.request.urlopen(\\\"http://127.0.0.1:{s.port}/\\\")" '
                     '</dev/null >/dev/null 2>&1 &'
                 )
-                self._exec_in_k8s_pod(name, latency_cmd)
-                k8s_action_msg = f" 850ms latency injected into Kubernetes pod '{k8s_pod}'. Stderr timeout logs active."
+                if self._exec_in_k8s_pod(name, latency_cmd):
+                    k8s_action_msg = f" 850ms latency injected into Kubernetes pod '{k8s_pod}'. Stderr timeout logs active."
+                else:
+                    k8s_action_msg = (
+                        f" Local 850ms latency active, but the command did "
+                        f"not reach Kubernetes pod '{k8s_pod}'."
+                    )
 
             return {
                 "status": "SUCCESS",

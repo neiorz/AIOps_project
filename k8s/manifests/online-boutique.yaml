@@ -60,9 +60,9 @@ spec:
                   sys.stderr.flush()
               def log_message(self, *a): pass
 
-          socketserver.TCPServer(("", 7070), H).serve_forever()
+          socketserver.TCPServer(("", 8182), H).serve_forever()
         ports:
-        - containerPort: 7070
+        - containerPort: 8182
         resources:
           requests:
             cpu: 50m
@@ -83,8 +83,8 @@ spec:
     app: cartservice
   ports:
   - name: grpc
-    port: 7070
-    targetPort: 7070
+    port: 8182
+    targetPort: 8182
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -141,9 +141,9 @@ spec:
                   sys.stderr.flush()
               def log_message(self, *a): pass
 
-          socketserver.TCPServer(("", 50051), H).serve_forever()
+          socketserver.TCPServer(("", 8181), H).serve_forever()
         ports:
-        - containerPort: 50051
+        - containerPort: 8181
         resources:
           requests:
             cpu: 50m
@@ -164,8 +164,8 @@ spec:
     app: paymentservice
   ports:
   - name: grpc
-    port: 50051
-    targetPort: 50051
+    port: 8181
+    targetPort: 8181
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -222,9 +222,9 @@ spec:
                   sys.stderr.flush()
               def log_message(self, *a): pass
 
-          socketserver.TCPServer(("", 8080), H).serve_forever()
+          socketserver.TCPServer(("", 8083), H).serve_forever()
         ports:
-        - containerPort: 8080
+        - containerPort: 8083
         resources:
           requests:
             cpu: 50m
@@ -245,8 +245,8 @@ spec:
     app: frontend
   ports:
   - name: http
-    port: 80
-    targetPort: 8080
+    port: 8083
+    targetPort: 8083
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -303,9 +303,9 @@ spec:
                   sys.stderr.flush()
               def log_message(self, *a): pass
 
-          socketserver.TCPServer(("", 3550), H).serve_forever()
+          socketserver.TCPServer(("", 8084), H).serve_forever()
         ports:
-        - containerPort: 3550
+        - containerPort: 8084
         resources:
           requests:
             cpu: 50m
@@ -326,8 +326,8 @@ spec:
     app: productcatalogservice
   ports:
   - name: grpc
-    port: 3550
-    targetPort: 3550
+    port: 8084
+    targetPort: 8084
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -351,7 +351,7 @@ spec:
       - name: redis
         image: redis:alpine
         ports:
-        - containerPort: 6379
+        - containerPort: 6380
         resources:
           requests:
             cpu: 50m
@@ -372,5 +372,5 @@ spec:
     app: redis-cart
   ports:
   - name: redis
-    port: 6379
-    targetPort: 6379
+    port: 6380
+    targetPort: 6380
