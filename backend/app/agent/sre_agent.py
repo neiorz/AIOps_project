@@ -96,11 +96,32 @@ class AutonomousSREAgent:
 
     @staticmethod
     def _trace_id(incident: CorrelatedIncident) -> Optional[str]:
-        """Only a trace id we actually have; otherwise traceql is skipped."""
+        """Only a trace id we actually have; otherwise traceql is skipped.
+
+        Labels live on the raw alerts the incident was correlated *from*, not
+        on the incident itself. The original version read
+        ``incident.labels``, which CorrelatedIncident does not have — a plain
+        AttributeError that took every investigation down at its fifth ReAct
+        step, once the first four tools had been called. Both locations are
+        consulted so the lookup keeps working if a correlation path ever
+        attaches labels directly to the incident.
+        """
+        label_sets: List[Dict[str, str]] = []
+
+        for alert in incident.sample_alerts or []:
+            alert_labels = getattr(alert, "labels", None)
+            if isinstance(alert_labels, dict):
+                label_sets.append(alert_labels)
+
+        incident_labels = getattr(incident, "labels", None)
+        if isinstance(incident_labels, dict):
+            label_sets.append(incident_labels)
+
         for key in ("trace_id", "traceid"):
-            value = incident.labels.get(key)
-            if value:
-                return str(value)
+            for labels in label_sets:
+                value = labels.get(key)
+                if value:
+                    return str(value)
         return None
 
     @staticmethod

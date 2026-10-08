@@ -12,6 +12,7 @@ _LOCK = threading.Lock()
 
 # Per-tool invocation counters (real, incremented at call time)
 _TOOL_CALLS: Dict[str, int] = {
+    "mesh_status": 0,
     "promql": 0,
     "logql": 0,
     "traceql": 0,
