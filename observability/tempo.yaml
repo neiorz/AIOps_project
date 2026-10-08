@@ -1,0 +1,40 @@
+# Grafana Tempo configuration (Track T1).
+#
+# Single binary, local filesystem storage, 24h retention. Receives OTLP on
+# 4317/4318 and answers TraceQL queries on 3200 (host 3201). The metrics
+# generator is deliberately off: it needs a Prometheus to write to, and
+# inventing one would be a second thing to keep honest.
+
+stream_over_http_enabled: true
+
+server:
+  http_listen_port: 3200
+  grpc_listen_port: 9095
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+ingester:
+  max_block_duration: 5m
+
+compactor:
+  compaction:
+    block_retention: 24h
+
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /var/tempo/wal
+    local:
+      path: /var/tempo/traces
+
+# The metrics generator is left unconfigured on purpose: it needs a
+# Prometheus to write to, and standing one up here would be a second thing
+# to keep honest. Tempo starts it disabled when this block is absent.

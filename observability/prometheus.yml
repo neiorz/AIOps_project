@@ -1,0 +1,20 @@
+# Prometheus scrape configuration (Track T1).
+#
+# Two targets: itself, and the AIOps backend's /metrics endpoint. The backend
+# lives on the host, reached through host.docker.internal (declared in
+# docker-compose.yml via extra_hosts). If `make dev-backend` is not running
+# that target reports Down — which is the truth, not a failure to hide.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: aiops-backend
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:8000"]
