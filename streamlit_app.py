@@ -206,8 +206,11 @@ with tabs[4]:
              f"sla_protection_rate = {sc.get('sla_protection_rate')} (needs a number)"),
             ("T3 Local LLM", h.get("status") not in (None, "STUB", "NOT_IMPLEMENTED"),
              f"llm status = {h.get('status')}"),
-            ("T4 Agent tools", ie.get("avg_tool_calls_per_rca", 0) > 0,
-             f"avg tool calls/RCA = {ie.get('avg_tool_calls_per_rca', 0)}"),
+            # > 1, not > 0: the pre-T4 agent already made one tool call per
+            # investigation, so > 0 went green before this track existed.
+            # Only the ReAct loop makes a second call.
+            ("T4 Agent tools", ie.get("avg_tool_calls_per_rca", 0) > 1,
+             f"avg tool calls/RCA = {ie.get('avg_tool_calls_per_rca', 0)} (needs > 1)"),
             ("T5 Anomaly detection", an.get("status") not in (None, "STUB", "NOT_IMPLEMENTED"),
              f"anomaly status = {an.get('status')}"),
             ("T6 Streamlit dashboard", True, "you are looking at it ✅"),
