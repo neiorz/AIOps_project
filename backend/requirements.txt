@@ -18,6 +18,13 @@ pyyaml>=6.0.1
 # lets T1-T7 run in parallel without fighting over requirements.txt.
 # =============================================================================
 
+# --- Track T1 : Observability (Prometheus /metrics exposition) --------------
+# NOT pre-seeded in Phase 0: PHASE_PLAN.md's T1 step 2 asserted that
+# `prometheus-client` was already installed, but only the *query* client
+# (prometheus-api-client, below, owned by T4) was. This is the server-side
+# instrumentation library that serves /metrics.
+prometheus-client>=0.22.0
+
 # --- Track T2 : Persistence layer -------------------------------------------
 sqlalchemy>=2.0.25
 psycopg[binary]>=3.1.18

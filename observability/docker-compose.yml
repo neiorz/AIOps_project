@@ -1,0 +1,62 @@
+# =============================================================================
+# Track T1 — local observability stack
+#
+# Started by `make observability-up`. Host ports are offset from the container
+# defaults so they never collide with anything already on this machine
+# (nothing here claims 9090, 3100 or 3200):
+#
+#     Prometheus  container 9090  ->  host 9091   PROMETHEUS_LOCAL_URL
+#     Loki        container 3100  ->  host 3101   LOKI_LOCAL_URL
+#     Tempo       container 3200  ->  host 3201   TEMPO_LOCAL_URL
+#
+# Prometheus scrapes the backend at /metrics, so `make dev-backend` must be
+# running for the scrape target to be Up. Everything else works standalone.
+# =============================================================================
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: aiops-prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    # Lets the container reach the backend on the host. Requires Docker
+    # 20.10+; without it the backend target simply stays Down.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.4.2
+    container_name: aiops-loki
+    ports:
+      - "3101:3100"
+    volumes:
+      - ./loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+
+  tempo:
+    image: grafana/tempo:2.7.1
+    container_name: aiops-tempo
+    ports:
+      - "3201:3200"   # query API (TraceQL)
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    command: -config.file=/etc/tempo.yaml
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  loki-data:
+  tempo-data:

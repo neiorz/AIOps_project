@@ -23,6 +23,7 @@ from app.api.mesh import router as mesh_router
 from app.api.anomalies import router as anomalies_router
 from app.api.llm import router as llm_router
 from app.api.ground_truth import router as ground_truth_router   # T2 seam
+from app.api.metrics import RequestsMetricsMiddleware, router as metrics_router  # T1 seam
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,6 +34,15 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting up AIOps Platform Engine...")
+    # Track T1: ship logs to Loki. Deliberately a no-op when Loki is not
+    # reachable, so `make dev-backend` without the observability stack
+    # behaves exactly as it did before.
+    try:
+        from app.tools.loki_handler import install_loki_logging
+        install_loki_logging()
+    except Exception as e:
+        logger.warning(f"Loki log shipping unavailable: {e}")
+
     try:
         count = index_all_runbooks()
         logger.info(f"RAG Knowledge Base initialized with {count} runbooks.")
@@ -79,6 +89,10 @@ app.include_router(anomalies_router, prefix=settings.API_V1_PREFIX)
 app.include_router(llm_router, prefix=settings.API_V1_PREFIX)
 # Track T2: persisted chaos ground-truth ledger
 app.include_router(ground_truth_router, prefix=settings.API_V1_PREFIX)
+# Track T1: /metrics at the ROOT, not under API_V1_PREFIX, because that is
+# where Prometheus scrapes by convention.
+app.include_router(metrics_router)
+app.add_middleware(RequestsMetricsMiddleware)
 
 # Serve built React dashboard or embedded single-page app
 DASHBOARD_HTML_FILE = Path(__file__).resolve().parent.parent / "static" / "index.html"
