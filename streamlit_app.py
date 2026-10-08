@@ -188,6 +188,7 @@ with tabs[4]:
     an = get("/anomalies")
     h = get("/llm/health")
     inc = get("/incidents")
+    cm = get("/chaos/chaos-mesh")  # T7: can this platform really inject?
 
     if "_error" in sc:
         st.error(f"Cannot reach the API: `{sc['_error']}`")
@@ -214,7 +215,13 @@ with tabs[4]:
             ("T5 Anomaly detection", an.get("status") not in (None, "STUB", "NOT_IMPLEMENTED"),
              f"anomaly status = {an.get('status')}"),
             ("T6 Streamlit dashboard", True, "you are looking at it ✅"),
-            ("T7 Chaos Mesh", None, "not auto-detectable — verify with `kubectl get crd`"),
+            # T7 built an endpoint that reports this itself; it used to say
+            # "not auto-detectable". None (API unreachable) renders as the
+            # warning state, True as green, False as red — always with the
+            # injector's own reason, so a red row explains itself.
+            ("T7 Chaos Mesh", cm.get("available"),
+             f"mode = {cm.get('mode', 'unknown')} — "
+             f"{str(cm.get('reason', cm.get('_error', 'unreachable')))[:110]}"),
         ]
         done = 0
         for name, state, note in signals:

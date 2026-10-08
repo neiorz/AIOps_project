@@ -44,6 +44,64 @@ def _isolate_database(tmp_path_factory):
     db_session._try_postgres = original_try
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _no_cluster_side_effects(tmp_path_factory):
+    """Make the suite incapable of mutating a real cluster.
+
+    Tests inject PodFailure, run remediation and build Chaos Mesh
+    experiments — all three reach for the cluster: `kubectl delete pod`,
+    `kubectl rollout restart`, and CR creation. Against a developer's
+    configured kubeconfig, with the workload deployed, a plain `make test`
+    would delete their pods on every run.
+
+    Two doors, both closed: kubectl reads KUBECONFIG, and the python client
+    is patched directly, because telemetry falls back to ~/.kube/config when
+    the env var points nowhere — env alone is not enough.
+    """
+    import os
+
+    import kubernetes.config as k8s_config
+
+    fake_kubeconfig = str(tmp_path_factory.mktemp("no-cluster") / "config")
+    original_env = os.environ.get("KUBECONFIG")
+    os.environ["KUBECONFIG"] = fake_kubeconfig
+
+    original_load = k8s_config.load_kube_config
+    original_incluster = k8s_config.load_incluster_config
+
+    def _refuse(*_args, **_kwargs):
+        raise RuntimeError("cluster access disabled during tests")
+
+    k8s_config.load_kube_config = _refuse
+    k8s_config.load_incluster_config = _refuse
+
+    yield
+
+    k8s_config.load_kube_config = original_load
+    k8s_config.load_incluster_config = original_incluster
+    if original_env is None:
+        os.environ.pop("KUBECONFIG", None)
+    else:
+        os.environ["KUBECONFIG"] = original_env
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _no_real_chaos_mesh():
+    """Never let the test suite create real Chaos Mesh experiments.
+
+    Track T7 made POST /chaos/inject capable of killing a real pod when the
+    CRDs are installed and the workload is deployed. Tests call that endpoint
+    freely, so without this guard a run on a developer's machine would inject
+    actual faults into their cluster and leave experiments running behind it.
+    """
+    from app.api.chaos import ChaosMeshInjector
+
+    original_detect = ChaosMeshInjector._detect
+    ChaosMeshInjector._detect = lambda self: (False, "disabled under test")
+    yield
+    ChaosMeshInjector._detect = original_detect
+
+
 @pytest.fixture
 def isolated_model(tmp_path, monkeypatch):
     """Point ML_MODEL_PATH + the anomaly log at throwaway files.
