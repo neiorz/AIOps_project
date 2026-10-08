@@ -8,6 +8,7 @@ touches the developer's real ledger.
 import logging
 
 import pytest
+from sqlalchemy import inspect, text
 
 from app.db import session as db_session
 from app.db.init import init_db
@@ -271,3 +272,58 @@ def test_scorecard_reports_sla_protection_rate(test_client):
     assert value is not None, "T2 step 4: this field must no longer be null"
     assert isinstance(value, (int, float))
     assert 0.0 <= value <= 100.0
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 (P3.2): T7's injection-mode disclosure must survive persistence.
+# ---------------------------------------------------------------------------
+def test_injection_mode_survives_a_save_load_round_trip():
+    """The mode written at inject time is the mode a restart still reports."""
+    assert save_ground_truth(_entry("chaos_mode_rt", injection_mode="chaos_mesh"))
+    row = next(r for r in load_ground_truth()
+               if r["experiment_id"] == "chaos_mode_rt")
+    assert row["injection_mode"] == "chaos_mesh"
+
+
+def test_migration_restores_a_legacy_table_and_backfills_recorded_modes():
+    """A table built before the column existed gets it back.
+
+    ``create_all`` never alters existing tables, so Phase 3 adds an explicit
+    migration — and backfills ONLY from what the injector recorded (the
+    explicit local-simulation key or a CHAOS_MESH_* action), leaving rows
+    that disclose nothing as NULL rather than guessing the mode.
+    """
+    engine = db_session.get_engine()
+
+    save_ground_truth(_entry(
+        "chaos_mode_local",
+        real_mesh_action={"action": "POD_KILL",
+                          "injection_mode": "local_simulation"},
+    ))
+    save_ground_truth(_entry(
+        "chaos_mode_cr",
+        real_mesh_action={"action": "CHAOS_MESH_PODCHAOS",
+                          "kubernetes_cr": "podchaos/x"},
+    ))
+    save_ground_truth(_entry(
+        "chaos_mode_unknown",
+        real_mesh_action={"status": "SUCCESS"},
+    ))
+
+    # Simulate the legacy schema for real: the column does not exist at all.
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE ground_truth DROP COLUMN injection_mode"))
+    columns = {c["name"] for c in inspect(engine).get_columns("ground_truth")}
+    assert "injection_mode" not in columns           # genuinely gone
+
+    db_session.migrate_schema(engine)
+
+    columns = {c["name"] for c in inspect(engine).get_columns("ground_truth")}
+    assert "injection_mode" in columns
+    by_id = {r["experiment_id"]: r for r in load_ground_truth()}
+    assert by_id["chaos_mode_local"]["injection_mode"] == "local_simulation"
+    assert by_id["chaos_mode_cr"]["injection_mode"] == "chaos_mesh"
+    assert by_id["chaos_mode_unknown"].get("injection_mode") is None  # not guessed
+
+    # Idempotent: a second run finds nothing left to backfill.
+    assert db_session.migrate_schema(engine) == 0

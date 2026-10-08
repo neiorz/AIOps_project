@@ -40,6 +40,11 @@ class GroundTruth(Base):
         JSON, default=dict, nullable=False
     )
 
+    #: Which injector actually ran — 'chaos_mesh' | 'local_simulation'.
+    #: T7's honesty contract says the mode is always disclosed; it must
+    #: SURVIVE a restart, which the column-less save/load silently broke.
+    injection_mode: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+
     #: Filled in once the agent finishes investigating
     ai_diagnosis: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     confidence_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
@@ -71,6 +76,7 @@ class GroundTruth(Base):
             ("ai_diagnosis", self.ai_diagnosis),
             ("confidence_score", self.confidence_score),
             ("investigation_duration_seconds", self.investigation_duration_seconds),
+            ("injection_mode", self.injection_mode),
         ):
             if value is not None:
                 data[key] = value

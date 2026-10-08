@@ -15,13 +15,14 @@ import sys
 from sqlalchemy import inspect, text
 
 from app.db.models import Base, GroundTruth, Incident
-from app.db.session import backend_name, get_engine, session_scope
+from app.db.session import backend_name, get_engine, migrate_schema, session_scope
 
 
 def init_db() -> list:
     """Create any missing tables. Returns the table names afterwards."""
     engine = get_engine()
     Base.metadata.create_all(engine)
+    migrate_schema(engine)          # create_all never alters existing tables
     return sorted(inspect(engine).get_table_names())
 
 
