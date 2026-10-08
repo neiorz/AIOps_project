@@ -17,6 +17,8 @@ from fastapi import APIRouter
 from app.api.chaos import ground_truth_ledger
 from app.correlation.engine import get_correlation_engine
 from app.tools.counters import get_tool_call_ledger, get_investigation_stats
+# T2 seam: incidents/ground truth are durable now, so these are computable.
+from app.db.repo import compute_sla_protection_rate, load_ground_truth
 
 router = APIRouter(prefix="/benchmarks", tags=["Evaluation Benchmark Scorecard"])
 
@@ -59,7 +61,13 @@ def _calculate_scorecard() -> Dict[str, Any]:
     tool_calls = get_tool_call_ledger()
     stats = get_investigation_stats()
 
-    total_experiments = len(ground_truth_ledger)
+    # T2 seam: prefer the persisted ledger so a restart does not zero the
+    # scorecard; the in-memory list covers a process that just started.
+    experiments = load_ground_truth() or ground_truth_ledger
+    total_experiments = len(experiments)
+
+    # T2 seam: this stayed `null` until incidents had somewhere to live.
+    sla_protection_rate = compute_sla_protection_rate()
 
     # Real alert compression:
     #   raw_alerts_ingested   -> how many alerts the engine actually received
@@ -87,7 +95,7 @@ def _calculate_scorecard() -> Dict[str, Any]:
             "rca_accuracy_percentage": None,   # honest: no data -> no score
             "rca_accuracy_note": "No chaos experiments evaluated yet.",
             "mean_time_to_detect_seconds": None,
-            "sla_protection_rate": None,
+            "sla_protection_rate": sla_protection_rate,
             "investigation_efficiency": investigation_efficiency,
             "raw_alerts_ingested": raw_alerts_ingested,
             "unique_alert_ids": alerts_with_ids,
@@ -98,7 +106,7 @@ def _calculate_scorecard() -> Dict[str, Any]:
     accurate = 0
     detection_latencies: List[float] = []
 
-    for item in ground_truth_ledger:
+    for item in experiments:
         if diagnosis_matches(item.get("ai_diagnosis", ""),
                              item.get("ground_truth_cause", "")):
             accurate += 1
@@ -120,7 +128,7 @@ def _calculate_scorecard() -> Dict[str, Any]:
         "rca_incorrect": total_experiments - accurate,
         "rca_accuracy_percentage": accuracy_pct,        # 0..100, unclamped
         "mean_time_to_detect_seconds": mttd,
-        "sla_protection_rate": None,                    # computed once incidents persist (Track T2)
+        "sla_protection_rate": sla_protection_rate,   # from persisted incidents (Track T2)
         "investigation_efficiency": investigation_efficiency,
         "raw_alerts_ingested": raw_alerts_ingested,
         "unique_alert_ids": alerts_with_ids,

@@ -47,6 +47,12 @@ backend/app/ml/data/anomalies.json
 .streamlit/secrets.toml
 ui/.streamlit/secrets.toml
 
+# Track T2 runtime database (SQLite fallback). Source, not data:
+# the schema is created by `python -m app.db.init`.
+backend/app/db/*.db
+backend/app/db/*.db-wal
+backend/app/db/*.db-shm
+
 # Local experiment output
 artifacts/
 reports/

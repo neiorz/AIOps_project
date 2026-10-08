@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter
 from app.correlation.engine import RawAlert, get_correlation_engine
 from app.agent.sre_agent import get_sre_agent
+from app.db.repo import load_ground_truth, save_ground_truth, save_incident  # T2 seam
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,7 @@ async def inject_chaos(req: ChaosInjectionRequest):
         "real_mesh_action": real_mesh_result
     }
     ground_truth_ledger.insert(0, ledger_entry)
+    save_ground_truth(ledger_entry)                 # T2 seam: durable copy
 
     # Trigger Cascading Alert Storm
     engine = get_correlation_engine()
@@ -113,6 +115,8 @@ async def inject_chaos(req: ChaosInjectionRequest):
     # Alert count is whatever the correlation engine actually observed.
     # (Previously this was padded with max(..., 542) to fake a 500+ alert storm.)
 
+    save_incident(incident)                          # T2 seam: durable incident
+
     # Trigger Autonomous AI Agent diagnosis asynchronously
     agent = get_sre_agent()
     investigation = await agent.investigate_incident(incident)
@@ -120,6 +124,7 @@ async def inject_chaos(req: ChaosInjectionRequest):
     ledger_entry["ai_diagnosis"] = investigation["root_cause_analysis"]["diagnosis"]
     ledger_entry["confidence_score"] = investigation["root_cause_analysis"]["confidence_score"]
     ledger_entry["investigation_duration_seconds"] = investigation["investigation_duration_seconds"]
+    save_ground_truth(ledger_entry)                  # T2 seam: store the diagnosis
 
     return {
         "status": "CHAOS_INJECTED",
@@ -132,6 +137,10 @@ async def inject_chaos(req: ChaosInjectionRequest):
 
 @router.get("/ledger")
 def get_ground_truth_ledger():
-    """Retrieve Ground-Truth Ledger entries."""
-    return ground_truth_ledger
+    """Retrieve Ground-Truth Ledger entries.
+
+    Reads the persisted store first so history survives a restart; the
+    in-memory list is the fallback when the store is empty or unreachable.
+    """
+    return load_ground_truth() or ground_truth_ledger
 

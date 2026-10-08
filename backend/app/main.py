@@ -22,6 +22,7 @@ from app.api.benchmarks import router as benchmarks_router
 from app.api.mesh import router as mesh_router
 from app.api.anomalies import router as anomalies_router
 from app.api.llm import router as llm_router
+from app.api.ground_truth import router as ground_truth_router   # T2 seam
 
 logging.basicConfig(
     level=logging.INFO,
@@ -76,6 +77,8 @@ app.include_router(mesh_router, prefix=settings.API_V1_PREFIX)
 # Phase 0 (P0.12): contract stubs so Tracks T3/T5/T6 can build in parallel.
 app.include_router(anomalies_router, prefix=settings.API_V1_PREFIX)
 app.include_router(llm_router, prefix=settings.API_V1_PREFIX)
+# Track T2: persisted chaos ground-truth ledger
+app.include_router(ground_truth_router, prefix=settings.API_V1_PREFIX)
 
 # Serve built React dashboard or embedded single-page app
 DASHBOARD_HTML_FILE = Path(__file__).resolve().parent.parent / "static" / "index.html"
