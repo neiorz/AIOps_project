@@ -15,6 +15,7 @@ no-op" this codebase refuses to ship.
 Nothing here blocks on import: ``from app.db.session import SessionLocal``
 must succeed even with no database present at all (PHASE_PLAN T2 step 1).
 """
+import json
 import logging
 import threading
 from contextlib import contextmanager
@@ -107,6 +108,7 @@ def get_engine() -> Engine:
         from app.db.models import Base
 
         Base.metadata.create_all(engine)              # fresh DB auto-creates tables
+        migrate_schema(engine)                        # existing DBs catch up (idempotent)
         _engine = engine
         return _engine
 
@@ -120,6 +122,76 @@ def backend_name() -> Optional[str]:
 
 def sqlite_path() -> Path:
     return SQLITE_PATH
+
+
+def _injection_mode_from_action(action) -> Optional[str]:
+    """Recover a *recorded* injection mode from ``real_mesh_action``.
+
+    Only what the injector actually wrote down counts: the explicit
+    ``injection_mode`` key (T7's local-simulation branch) or a
+    ``CHAOS_MESH_*`` action name (its real-CR branch). An action that
+    discloses neither stays ``None`` — the mode is never guessed.
+    """
+    if isinstance(action, str):
+        try:
+            action = json.loads(action)
+        except (TypeError, ValueError):
+            return None
+    if not isinstance(action, dict):
+        return None
+    explicit = action.get("injection_mode")
+    if explicit:
+        return str(explicit)
+    if str(action.get("action", "")).startswith("CHAOS_MESH"):
+        return "chaos_mesh"
+    return None
+
+
+def migrate_schema(engine: Engine) -> int:
+    """Bring tables that already exist up to the current models.
+
+    ``Base.metadata.create_all()`` only creates *missing tables* — it never
+    adds a column to a table that is already there. Track T7's
+    ``injection_mode`` disclosure was therefore dropped from every ledger row
+    persisted before the column existed (``save_ground_truth`` whitelists
+    model fields), so a restart erased the honesty contract's mode from the
+    ledger. This adds the column and backfills rows from the recorded
+    ``real_mesh_action``, leaving rows it cannot classify as ``NULL``.
+
+    Idempotent; returns how many rows were backfilled.
+    """
+    from sqlalchemy import inspect
+
+    inspector = inspect(engine)
+    if "ground_truth" not in inspector.get_table_names():
+        return 0
+
+    columns = {c["name"] for c in inspector.get_columns("ground_truth")}
+    if "injection_mode" not in columns:
+        with engine.begin() as conn:
+            conn.execute(text(
+                "ALTER TABLE ground_truth ADD COLUMN injection_mode VARCHAR(30)"
+            ))
+        logger.info("db migration: added ground_truth.injection_mode")
+
+    backfilled = 0
+    with engine.begin() as conn:
+        rows = conn.execute(text(
+            "SELECT experiment_id, real_mesh_action FROM ground_truth "
+            "WHERE injection_mode IS NULL"
+        )).fetchall()
+        for experiment_id, action in rows:
+            mode = _injection_mode_from_action(action)
+            if mode:
+                conn.execute(
+                    text("UPDATE ground_truth SET injection_mode = :mode "
+                         "WHERE experiment_id = :eid"),
+                    {"mode": mode, "eid": experiment_id},
+                )
+                backfilled += 1
+    if backfilled:
+        logger.info("db migration: backfilled injection_mode on %d row(s)", backfilled)
+    return backfilled
 
 
 def _new_session() -> Session:

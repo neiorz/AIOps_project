@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 _GROUND_TRUTH_FIELDS = (
     "experiment_id", "service", "experiment_type", "tenant_id",
     "ground_truth_cause", "expected_symptom", "injected_at", "status",
-    "real_mesh_action", "ai_diagnosis", "confidence_score",
+    "real_mesh_action", "injection_mode", "ai_diagnosis", "confidence_score",
     "investigation_duration_seconds",
 )
 

@@ -20,12 +20,14 @@ In enterprise AIOps, artificial intelligence is categorized across three distinc
 +------------------------------+-------------------------------------+------------------------------------+
 | Capability                   | Production Implementation in Repo   | Engineering Rationale             |
 +------------------------------+-------------------------------------+------------------------------------+
-| Alert Correlation            | Dynamic Sliding-Window Clustering   | Eliminates 99%+ alert fatigue      |
+| Alert Correlation            | Dynamic Sliding-Window Clustering   | 62.5% noise reduction measured in  |
+|                              |                                     | the run (16 alerts -> 6 incidents) |
 | Knowledge Representation     | 384-dimensional Dense Embeddings    | Captures technical operational intent |
-| Vector Retrieval             | ChromaDB with Cosine/L2 Similarity  | Deterministic, sub-10ms SOP lookup |
+| Vector Retrieval             | ChromaDB with Cosine/L2 Similarity  | Deterministic local SOP lookup     |
 | Tool Invocation              | ReAct Agent Diagnostic Toolset      | Grounds root cause in live cluster |
-| Generative Text Synthesis    | Deterministic Synthesis & Structured| Eliminates LLM hallucinations on  |
-|                              | Template Grounding                  | critical production infrastructure |
+| Generative Text Synthesis    | Status-gated llama3.2:3b narrative  | LLM text accepted only when its    |
+|                              | (Ollama) + deterministic runbooks   | status is OK; the gate number is   |
+|                              |                                     | computed from tools, never the LLM |
 +------------------------------+-------------------------------------+------------------------------------+
 ```
 
@@ -58,7 +60,7 @@ flowchart TD
         H --> J["RunbookRetriever.search_relevant_runbooks()<br/>(backend/app/rag/retriever.py)"]
         J --> K["ChromaDB Collection 'devops_runbooks'<br/>(all-MiniLM-L6-v2 384-dim Embeddings)"]
         K --> L["Cosine Distance Calculation<br/>score = max(0, 1.0 - dist / 2.0)"]
-        L --> M["Matched SOP Runbook<br/>(cart_service_failure.md ~76.3% Match)"]
+        L --> M["Matched SOP Runbook<br/>(actual score in runbooks[].similarity)"]
     end
 
     subgraph S5["5. Synthesis & Human-in-the-Loop Gate"]
@@ -77,10 +79,10 @@ flowchart TD
 | Dimension | Pure Generative LLM (Chat-only) | Our Autonomous AIOps Architecture |
 | :--- | :--- | :--- |
 | **Primary Goal** | Free-form natural language generation | Precision incident resolution, SLA compliance, verified self-healing |
-| **Operational Risk** | High: Hallucinated flags, fictitious bash syntax (`rm -rf`) | Zero: Actions are restricted to verified playbooks in [`backend/runbooks/`](file:///home/moha/Downloads/aiops-platform/backend/runbooks/) |
-| **Execution Latency** | 2,000ms – 8,000ms (token streaming) | 5ms – 25ms (in-process vector search & local clustering) |
+| **Operational Risk** | High: Hallucinated flags, fictitious bash syntax (`rm -rf`) | Zero: Actions are restricted to verified playbooks in [`backend/runbooks/`](backend/runbooks/) |
+| **Execution Latency** | Seconds per streamed response | Measured 18.3 – 29.6 s per full RCA (retrieval + tools + llama3.2:3b), from ledger `investigation_duration_seconds` |
 | **Cost & Dependencies**| Requires external GPU clusters or paid API keys | 100% offline, local ONNX Runtime embedding, zero token costs |
-| **Safety Guardrails** | Difficult to constrain deterministically | Native Human Approval Gate ([`backend/app/api/incidents.py`](file:///home/moha/Downloads/aiops-platform/backend/app/api/incidents.py#L144)) |
+| **Safety Guardrails** | Difficult to constrain deterministically | Native Human Approval Gate ([`backend/app/api/incidents.py`](backend/app/api/incidents.py#L144)) |
 
 ---
 
@@ -88,23 +90,26 @@ flowchart TD
 
 ### Code Map
 
-- **Data Models:** [`backend/app/correlation/engine.py`](file:///home/moha/Downloads/aiops-platform/backend/app/correlation/engine.py#L5-L28) (`RawAlert`, `CorrelatedIncident`)
-- **Correlation Engine:** [`backend/app/correlation/engine.py`](file:///home/moha/Downloads/aiops-platform/backend/app/correlation/engine.py#L29-L97) (`AlertCorrelationEngine.correlate()`)
-- **Alert Ingress Webhook:** [`backend/app/api/alerts.py`](file:///home/moha/Downloads/aiops-platform/backend/app/api/alerts.py#L7-L27) (`receive_alert()`)
-- **Telemetry Query Tools:** [`backend/app/tools/telemetry.py`](file:///home/moha/Downloads/aiops-platform/backend/app/tools/telemetry.py#L8-L87) (`TelemetryTools`)
-- **SLA Risk Prioritization:** [`backend/app/sla/calculator.py`](file:///home/moha/Downloads/aiops-platform/backend/app/sla/calculator.py#L11-L60) (`SLARiskCalculator`)
+- **Data Models:** [`backend/app/correlation/engine.py`](backend/app/correlation/engine.py#L5-L28) (`RawAlert`, `CorrelatedIncident`)
+- **Correlation Engine:** [`backend/app/correlation/engine.py`](backend/app/correlation/engine.py#L29-L97) (`AlertCorrelationEngine.correlate()`)
+- **Alert Ingress Webhook:** [`backend/app/api/alerts.py`](backend/app/api/alerts.py#L7-L27) (`receive_alert()`)
+- **Telemetry Query Tools:** [`backend/app/tools/telemetry.py`](backend/app/tools/telemetry.py#L8-L87) (`TelemetryTools`)
+- **SLA Risk Prioritization:** [`backend/app/sla/calculator.py`](backend/app/sla/calculator.py#L11-L60) (`SLARiskCalculator`)
 
 ### Detection Logic & Mathematical Formulation
 
-The platform avoids raw, unclustered event streaming. When a failure manifests (e.g., `cart-service` CPU saturation), downstream microservices (`frontend`, `checkout-service`) cascade with HTTP 504 Gateway Timeouts, generating up to 500 alerts per minute.
+The platform avoids raw, unclustered event streaming. When a failure manifests (e.g., `cart-service` CPU saturation), downstream microservices (`frontend`, `checkout-service`) cascade with HTTP 504 Gateway Timeouts, producing a burst of alerts that must be deduplicated.
 
 ```
                     CASCADE SUPPRESSION TIMELINE
 Alert 1 (cart-service)   --+
 Alert 2 (frontend 504)    --+--> Sliding Window (dt <= 120s) --> Unified Incident inc_tenant_b_172765_1
 Alert 3 (checkout 504)    --+    Tenant Isolation Match
-Alert 500 (TCP timeout)  --+
+Alert N (TCP timeout)     --+
 ```
+
+**Measured effect (Phase 3 benchmark run):** 16 raw alerts correlated into 6 incidents — **62.5% noise reduction**
+(`noise_reduction_percentage` from `GET /api/v1/benchmarks/scorecard`).
 
 #### 1. Temporal Sliding Window Clustering
 In `AlertCorrelationEngine.correlate()`:
@@ -129,7 +134,7 @@ If $\Delta t \le 120\text{ seconds}$ and the tenant matches:
 5. **Severity Escalation:** If any incoming alert carries `severity == "critical"`, the parent incident severity escalates to `"critical"` immediately.
 
 #### 2. Multi-Tenant SLA Risk Scoring
-In [`backend/app/sla/calculator.py`](file:///home/moha/Downloads/aiops-platform/backend/app/sla/calculator.py#L18-L58):
+In [`backend/app/sla/calculator.py`](backend/app/sla/calculator.py#L18-L58):
 Incidents are dynamically prioritized based on client contracts:
 - **Tenant A:** $\text{SLA} = 300\text{s}$ (5 minutes)
 - **Tenant B:** $\text{SLA} = 900\text{s}$ (15 minutes)
@@ -154,9 +159,9 @@ $$\text{RiskScore} = \min(100.0, \text{round}(\text{RawRisk}, 2))$$
 
 ### Code Map
 
-- **Vector Database Client:** [`backend/app/rag/vectorstore.py`](file:///home/moha/Downloads/aiops-platform/backend/app/rag/vectorstore.py#L10-L54) (`ChromaManager`)
-- **Runbook Ingestion & Parsing:** [`backend/app/rag/indexer.py`](file:///home/moha/Downloads/aiops-platform/backend/app/rag/indexer.py#L10-L72) (`index_all_runbooks()`, `parse_runbook_content()`)
-- **DevOps Knowledge Store:** [`backend/runbooks/`](file:///home/moha/Downloads/aiops-platform/backend/runbooks/) (`*.md` operational runbooks)
+- **Vector Database Client:** [`backend/app/rag/vectorstore.py`](backend/app/rag/vectorstore.py#L10-L54) (`ChromaManager`)
+- **Runbook Ingestion & Parsing:** [`backend/app/rag/indexer.py`](backend/app/rag/indexer.py#L10-L72) (`index_all_runbooks()`, `parse_runbook_content()`)
+- **DevOps Knowledge Store:** [`backend/runbooks/`](backend/runbooks/) (`*.md` operational runbooks)
 
 ### What is ChromaDB and Why Is It Used Here?
 
@@ -170,12 +175,12 @@ Keyword search fails when an alert says `"thread pool exhausted"` or `"resource 
 
 ```
 Traditional SQL:  "cart-service CPU burn"  !=  "shopping cart resource exhaustion"  (0 words matched)
-ChromaDB Vector:  "cart-service CPU burn"  ~=  "shopping cart resource exhaustion"  (Cosine Sim = 0.84)
+ChromaDB Vector:  "cart-service CPU burn"  ~=  "shopping cart resource exhaustion"  (high cosine similarity)
 ```
 
 ### Ingestion & Chunking Pipeline
 
-When the backend starts up ([`backend/app/main.py`](file:///home/moha/Downloads/aiops-platform/backend/app/main.py#L29-L32)), `index_all_runbooks()` executes:
+When the backend starts up ([`backend/app/main.py`](backend/app/main.py#L29-L32)), `index_all_runbooks()` executes:
 
 1. **Discovery:** Scans `backend/runbooks/*.md`.
 2. **Metadata Parsing:** Extracts the H1 header as `title`, assigns technical taxonomy categories (`compute`, `memory`, `network`, `cache`, `service`), and preserves the full SOP instructions.
@@ -199,7 +204,7 @@ ChromaDB uses its native embedding function powered by **ONNX Runtime**:
 - **Execution Engine:** Runs locally on CPU via ONNX Runtime without PyTorch or external API calls.
 
 ```
-"Cart Service CPU Saturation" ──[ all-MiniLM-L6-v2 ]──> [-0.0421, 0.0892, ..., -0.0114]  (384 floats)
+"Cart Service CPU Saturation" ──[ all-MiniLM-L6-v2 ]──> [ ... 384 floats ... ]   (shape illustrated; the real similarity is returned per RCA)
 ```
 
 Each dimension represents an abstract linguistic or semantic feature learned during pre-training on 1B+ sentence pairs.
@@ -210,8 +215,8 @@ Each dimension represents an abstract linguistic or semantic feature learned dur
 
 ### Code Map
 
-- **Query Formulation:** [`backend/app/agent/sre_agent.py`](file:///home/moha/Downloads/aiops-platform/backend/app/agent/sre_agent.py#L34-L36) (`investigate_incident()`)
-- **Semantic Vector Query:** [`backend/app/rag/retriever.py`](file:///home/moha/Downloads/aiops-platform/backend/app/rag/retriever.py#L11-L50) (`search_relevant_runbooks()`)
+- **Query Formulation:** [`backend/app/agent/sre_agent.py`](backend/app/agent/sre_agent.py#L34-L36) (`investigate_incident()`)
+- **Semantic Vector Query:** [`backend/app/rag/retriever.py`](backend/app/rag/retriever.py#L11-L50) (`search_relevant_runbooks()`)
 
 ### 1. Query Formulation
 
@@ -242,7 +247,7 @@ ChromaDB returns the distance metric $d \in [0, 2]$.
 
 ### 3. Similarity Score Normalization
 
-In [`backend/app/rag/retriever.py`](file:///home/moha/Downloads/aiops-platform/backend/app/rag/retriever.py#L39):
+In [`backend/app/rag/retriever.py`](backend/app/rag/retriever.py#L39):
 ```python
 similarity_score = max(0.0, 1.0 - (dist / 2.0)) if dist is not None else 1.0
 ```
@@ -256,7 +261,11 @@ Distance d = 1.20  -->  Similarity = 0.400 ( 40.0% - Weak / Irrelevant Match)
 Distance d = 2.00  -->  Similarity = 0.000 (  0.0% - Complete Orthogonality)
 ```
 
-A score $\ge 0.70$ ($70\%$) indicates high operational confidence. The `cart-service` stress incident achieves **$76.3\%$ similarity** with [`backend/runbooks/cart_service_failure.md`](file:///home/moha/Downloads/aiops-platform/backend/runbooks/cart_service_failure.md).
+(The distance rows above are the normalization formula applied to example
+inputs — not claims about a specific run.) Each RCA publishes the **actual**
+similarity of its retrieved runbooks in `runbooks[].similarity` together with
+`llm.citations`, visible in the `POST /api/v1/incidents/{id}/diagnose`
+response.
 
 ### 4. Remediation Formulation
 
@@ -285,30 +294,35 @@ The AI layer in this repository is an **Autonomous Semantic Retrieval & Decision
 
 ### Why This Architecture Was Chosen
 
-1. **Sub-10ms Diagnostic Execution:** Vector distance calculation on 384-dimensional embeddings takes $< 10\text{ms}$. Generative LLMs take $2\text{s} - 8\text{s}$, which is critical when an SLA window is 300 seconds.
-2. **Deterministic Safety:** In real SRE environments, an AI model cannot be allowed to hallucinate commands (e.g., executing `docker kill --all` or writing broken bash scripts). Using structured runbooks guarantees that any proposed command is pre-approved by the infrastructure team.
-3. **Zero Cost & Local Execution:** The platform runs 100% locally on RHEL 10.2 ARM64 using ONNX Runtime without paid cloud tokens.
+1. **Measured latency inside the SLA budget:** The full RCA (retrieval + tool diagnostics + llama3.2:3b narrative) measured **18.3 – 29.6 s** per experiment (ledger `investigation_duration_seconds`), comfortably inside the smallest SLA window of 300 s.
+2. **Deterministic Safety:** In real SRE environments, an AI model cannot be allowed to hallucinate commands (e.g., executing `docker kill --all` or writing broken bash scripts). Structured runbooks guarantee every proposed command is pre-approved by the infrastructure team — and the confidence gate (`RCA_MIN_CONFIDENCE = 0.65`) blocks auto-heal when evidence is weak.
+3. **Zero Cost & Local Execution:** Everything runs locally — ChromaDB embeddings via ONNX Runtime and a local Ollama `llama3.2:3b` — with no paid API tokens.
 
-### Future Roadmap (Production Generative LLM Integration)
+### Generative LLM Stage (Implemented in Phase 2 — not a roadmap item)
 
-For future extensions, a generative model (e.g., Gemini API or local Ollama with Llama 3) can be plugged directly into Step 4 of the pipeline:
+The pipeline now includes a real local LLM stage: `_generate_rca()` in
+`backend/app/agent/sre_agent.py` sends the retrieved runbook plus tool
+evidence to **Ollama `llama3.2:3b`** and receives a structured diagnosis.
 
-```python
-# Roadmap Extension in backend/app/agent/sre_agent.py
-async def synthesize_generative_postmortem(runbook_text: str, k8s_evidence: dict) -> str:
-    prompt = f"""
-    You are an elite Site Reliability Engineer.
-    Based on the following retrieved runbook:
-    {runbook_text}
-    
-    And the live cluster telemetry evidence:
-    {json.dumps(k8s_evidence)}
-    
-    Generate a 3-paragraph executive incident post-mortem explaining the cascade failure.
-    """
-    response = await ollama_client.generate(model="llama3:8b", prompt=prompt)
-    return response["text"]
-```
+Honesty rules that keep the LLM from becoming a liability:
+
+1. **The LLM never supplies the gate number.** Confidence stays
+   `0.5 * retrieval_confidence + 0.5 * tool_agreement` (computed in
+   `_confidence()`), so a fluent hallucination cannot raise the score.
+2. **Status-gated merge.** The LLM diagnosis/narrative replaces the runbook
+   title only when `status == "OK"`; any other status (`UNREACHABLE`,
+   `TIMEOUT`, ...) leaves the deterministic runbook title in place.
+3. **Provenance.** Every RCA carries `llm: {status, model, citations}` so a
+   reviewer can see exactly when an LLM spoke and what it was grounded on.
+4. **The gate still decides.** Auto-heal fires only when
+   `confidence >= RCA_MIN_CONFIDENCE` (0.65). Measured in the Phase 2 live
+   verification: a real PodFailure RCA at **0.5314** and an anomaly RCA at
+   **0.294** were both `REMEDIATION_BLOCKED`, while an operator `/approve`
+   override executed the same remediation.
+
+LLM availability never blocks the test suite: `backend/tests/conftest.py`
+installs a session seam whose default response is `UNREACHABLE`, reproducing
+the exact no-LLM behaviour offline.
 
 ---
 
@@ -319,7 +333,7 @@ async def synthesize_generative_postmortem(runbook_text: str, k8s_evidence: dict
 > "It is a genuine Machine Learning implementation combining two components:  
 > 1. We run **`all-MiniLM-L6-v2`**, a 6-layer Transformer sentence-embedding model executing via ONNX Runtime. It maps operational runbooks into a 384-dimensional latent semantic space.  
 > 2. When an incident occurs, we execute high-dimensional **Cosine Similarity vector search** in ChromaDB to retrieve matching Standard Operating Procedures (SOPs).  
-> It does not use hardcoded keyword lookups: an alert describing 'resource exhaustion' accurately maps to a runbook titled 'CPU Saturation & CFS Throttling' with a 76.3% mathematical similarity score."
+> It does not use hardcoded keyword lookups: an alert describing 'resource exhaustion' maps to a runbook titled 'CPU Saturation & CFS Throttling' through the angular distance of their embedding vectors, and the returned similarity is published in every RCA payload. End-to-end, the Phase 3 benchmark of 21 chaos experiments measured a **71.4% diagnosis accuracy** — computed by `GET /api/v1/benchmarks/scorecard` and never clamped."
 
 ### Question 2: *"Why use ChromaDB instead of a traditional SQL query searching for keywords?"*
 > **Answer:**  
@@ -335,12 +349,12 @@ async def synthesize_generative_postmortem(runbook_text: str, k8s_evidence: dict
 
 ### Question 4: *"What happens if ChromaDB returns a low similarity score or no matching runbook?"*
 > **Answer:**  
-> "In `backend/app/rag/retriever.py`, every document is assigned a normalized similarity score:  
-> $$\text{Score} = \max(0.0, 1.0 - \text{dist}/2.0)$$  
-> If the top match falls below our confidence threshold ($\text{Score} < 0.65$), the agent marks the diagnosis as unverified, logs a fallback title, flags the incident with elevated human review priority, and prevents automated self-healing execution."
+> "In `backend/app/rag/retriever.py`, every document is assigned a normalized similarity score:
+> $$\text{Score} = \max(0.0, 1.0 - \text{dist}/2.0)$$
+> That similarity feeds the blended confidence $\;c = 0.5 \times \text{retrieval} + 0.5 \times \text{tool\ agreement}$. Automated self-healing fires only when $c \ge \texttt{RCA\_MIN\_CONFIDENCE} = 0.65$; below it the incident stays `INVESTIGATING` and the API returns `REMEDIATION_BLOCKED` with both numbers, so an operator can see exactly why nothing healed. A missing runbook simply yields similarity 0.0, which pulls the blend down the same way."
 
 ### Question 5: *"Why isn't a generative LLM executing bash commands directly without human-in-the-loop?"*
 > **Answer:**  
 > "In enterprise SRE, unconstrained LLM bash generation is a critical anti-pattern due to hallucination risks and prompt injection vulnerabilities.  
 > Our architecture follows the principle of **Autonomous Retrieval with Supervised Remediation**:  
-> The AI handles detection, correlation, vector retrieval, and diagnostics. Remediation actions are bound to deterministic, pre-validated Ansible playbooks (`ansible/restart_service.yml`). The Human Approval Gate ensures human oversight before infrastructure changes are applied."
+> The AI handles detection, correlation, vector retrieval, and diagnostics — plus, since Phase 2, an LLM-written diagnosis that is status-gated and never contributes to the confidence number. Remediation actions are bound to deterministic, pre-validated Ansible playbooks (`ansible/restart_service.yml`). The confidence gate (`RCA_MIN_CONFIDENCE`) plus the Human Approval Gate (`/approve` as operator override) ensure human oversight before infrastructure changes are applied."

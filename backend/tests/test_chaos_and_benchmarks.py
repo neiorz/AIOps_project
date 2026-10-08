@@ -16,8 +16,8 @@ def test_chaos_injection_and_ground_truth(test_client):
 
     # P0.1/P0.3 HONESTY: the reported alert count must equal the alerts that
     # were actually correlated into this incident. (The previous assertion,
-    # `>= 500`, passed only because chaos.py padded the value with
-    # `max(total_alerts, 542)`.)
+    # `>= 500`, passed only because chaos.py padded the value with a
+    # hardcoded floor of a few hundred.)
     assert data["compressed_alerts_count"] >= 1
     inc = test_client.get(
         f"/api/v1/incidents/{data['correlated_incident_id']}"
@@ -33,7 +33,8 @@ def test_evaluation_scorecard(test_client):
     assert "rca_accuracy_percentage" in scorecard
     acc = scorecard["rca_accuracy_percentage"]
     # P0.1 HONESTY: 0..100 and unclamped, or None when nothing was evaluated.
-    # Previously this was forced into [85, 100] regardless of correctness.
+    # Previously this was clamped into a flattering band regardless of
+    # correctness.
     assert acc is None or (0.0 <= acc <= 100.0)
 
     assert "mean_time_to_detect_seconds" in scorecard
@@ -41,13 +42,14 @@ def test_evaluation_scorecard(test_client):
     assert "investigation_efficiency" in scorecard
 
     # P0.2 HONESTY: tool counts must be read from the live counters, not
-    # synthesised with formulae like `experiments * 3 + 12`.
+    # synthesised with a formula over the experiment count.
     from app.tools.counters import get_tool_call_ledger
     assert scorecard["investigation_efficiency"]["tool_calls"] == get_tool_call_ledger()
 
 
 def test_rca_matcher_does_not_force_credit():
-    """Regression: the old scorecard hit `else: accurate_matches += 1`."""
+    """Regression: the old scorecard had an else-branch that counted every
+    experiment as accurate no matter what the agent diagnosed."""
     from app.api.benchmarks import diagnosis_matches
 
     # Mismatched failure modes must NOT be scored as correct.

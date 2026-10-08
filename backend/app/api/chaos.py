@@ -489,7 +489,7 @@ async def inject_chaos(req: ChaosInjectionRequest):
         incident = engine.correlate(dep_alert)
 
     # Alert count is whatever the correlation engine actually observed.
-    # (Previously this was padded with max(..., 542) to fake a 500+ alert storm.)
+    # (Previously this was padded with a hardcoded floor to fake a 500+ storm.)
 
     save_incident(incident)                          # T2 seam: durable incident
 
