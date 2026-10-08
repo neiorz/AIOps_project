@@ -22,7 +22,7 @@ Each row is one step. Work **top → bottom** inside a track, but tracks run **i
 | Server | `./run.sh dev-backend` → `http://localhost:8000` |
 | Logs | `/tmp/opencode/aiops-server.log` |
 | Stop server | `pkill -f "$(printf 'uvi''corn app.main')"` |
-| Ports | backend `8000`, mesh `8081-8084` + `6380`, Streamlit `8501`, Prometheus `9091`, Loki `3101`, Tempo `3201` |
+| Ports | backend `8000`, mesh `8181`-`8182`, `8083`-`8084` + `6380`, Streamlit `8501`, Prometheus `9091`, Loki `3101`, Tempo `3201` |
 
 ### File ownership (don't touch another track's file)
 
@@ -109,7 +109,7 @@ Each row is one step. Work **top → bottom** inside a track, but tracks run **i
 |---|---|---|---|
 | 1 | Install Chaos Mesh + CRDs in minikube | `helm repo add chaos-mesh …` / `helm install` | `kubectl get crd` lists `chaosmeshes`/`pods` |
 | 2 | Make `api/chaos.py` create real `ChaosExperiment` CRs in-cluster, fall back to simulation locally | `kubernetes` client | in-cluster inject kills a real pod |
-| 3 | Align `k8s/manifests/online-boutique.yaml` ports to `8081-8084`/`6380` | edit manifest | ports match the app |
+| 3 | Align `k8s/manifests/online-boutique.yaml` ports to the app's real mesh ports `8181`/`8182`/`8083`/`8084`/`6380` (manifest currently declares upstream `7070`/`50051`/`80`/`3550`/`6379`) | edit manifest | ports match the app |
 | 4 | Add `helm_release` + missing namespaces to `terraform/main.tf` | `terraform validate` | passes |
 | 5 | Verify inject → incident → real pod restart | `make chaos-inject` | pod `RESTARTS` increments |
 
