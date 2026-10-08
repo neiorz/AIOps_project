@@ -41,13 +41,43 @@ def test_anomaly_contract_endpoints_are_registered(test_client, isolated_model,
     assert "sample" in res.json()["detail"].lower()
 
 
-def test_llm_contract_endpoints_are_registered(test_client):
+def test_llm_contract_endpoints_are_registered(test_client, monkeypatch):
+    """T3 has implemented these handlers, so the assertions cover the real
+    generation path with both module seams stubbed: the Phase 0 contract must
+    hold whether or not an Ollama server happens to be running (offline
+    suite, T3 step 5). The health probe itself runs for real — no status
+    VALUE is asserted, only the shape — so the live wiring stays covered.
+    Behaviour behind the seams is in test_llm_generation.py."""
+    import json as _json
+
+    from app.api import llm as llm_mod
+
+    monkeypatch.setattr(llm_mod, "_retrieve", lambda query, n_results=3: ([{
+        "id": "runbook_network_latency",
+        "title": "Network Latency",
+        "category": "network",
+        "filename": "network_latency.md",
+        "content": "P99 latency spike runbook.",
+        "similarity_score": 0.9,
+    }], None))
+    monkeypatch.setattr(llm_mod, "_call_ollama", lambda system, user: _json.dumps({
+        "diagnosis": "Runbook: Network Latency",
+        "narrative": "Evidence matches the network latency runbook.",
+        "summary": "post-mortem summary",
+        "root_cause": "injected NetworkChaos delay",
+        "impact": "checkout timeouts",
+        "detection": "latency alert fired",
+        "remediation": "experiment auto-recovered",
+        "prevention": "gate kept low evidence out of remediation",
+    }))
+
     # GET /api/v1/llm/health
     res = test_client.get("/api/v1/llm/health")
     assert res.status_code == 200
     health = res.json()
     assert set(health) >= {"enabled", "host", "model", "reachable", "status"}
     assert health["model"]  # non-empty model name comes from config
+    assert health["status"] != "STUB"  # T3 replaced the Phase 0 stub
 
     # POST /api/v1/llm/rca — must honour the confidence gate contract
     res = test_client.post("/api/v1/llm/rca", json={
@@ -61,6 +91,9 @@ def test_llm_contract_endpoints_are_registered(test_client):
     assert set(rca) >= {"status", "model", "diagnosis", "confidence",
                         "citations", "remediation_blocked"}
     assert rca["remediation_blocked"] is True
+    # T3: the real path generated — it did not just return stub text
+    assert rca["status"] == "OK"
+    assert rca["diagnosis"] and rca["narrative"]
 
     # ...and must NOT block when confidence clears the gate
     res = test_client.post("/api/v1/llm/rca", json={
@@ -68,16 +101,22 @@ def test_llm_contract_endpoints_are_registered(test_client):
         "primary_service": "cart-service",
         "retrieval_confidence": 0.90,
     })
-    assert res.json()["remediation_blocked"] is False
+    rca = res.json()
+    assert rca["remediation_blocked"] is False
+    assert rca["citations"]  # runbook grounding is visible in the response
 
-    # POST /api/v1/llm/postmortem
+    # POST /api/v1/llm/postmortem — sections populated (T3 step 4)
     res = test_client.post("/api/v1/llm/postmortem", json={
         "incident_id": "inc_test_1",
         "ground_truth_cause": "NetworkChaos",
         "ai_diagnosis": "Network Latency",
     })
     assert res.status_code == 200
-    assert res.json()["status"] == "NOT_IMPLEMENTED"
+    body = res.json()
+    assert set(body) >= {"status", "model", "narrative", "sections"}
+    assert body["status"] == "OK"
+    assert set(body["sections"]) >= {"summary", "root_cause"}
+    assert all(body["sections"].values())
 
 
 def test_topology_reports_only_measured_values(test_client):

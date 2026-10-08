@@ -38,7 +38,7 @@ lint:
 	@echo "Lint OK."
 
 index-runbooks:
-	$(PYTHON) -m app.rag.indexer
+	cd backend && ../$(PYTHON) -m app.rag.indexer
 
 dev-backend:
 	cd backend && ../$(PYTHON_VENV)/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
