@@ -180,7 +180,10 @@ with tabs[3]:
         st.error(h["_error"])
     else:
         st.write(f"**LLM:** `{h['model']}` @ `{h['host']}` — status **{h['status']}**")
-        st.caption("T3 will fill this tab with generated root-cause narratives.")
+        st.caption(
+            "Live probe of the local Ollama server (T3). "
+            "Generation: `POST /api/v1/llm/rca`."
+        )
 
 # --- Insights (step 5) ------------------------------------------------------
 with tabs[4]:
