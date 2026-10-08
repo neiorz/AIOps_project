@@ -39,6 +39,11 @@ prometheus-api-client>=0.6.0
 scikit-learn>=1.4.0
 joblib>=1.3.2
 pandas>=2.2.0
+# Phase 2 backfill (plan step 4): four ML modules (scoring, train,
+# evaluation, calibration) import numpy DIRECTLY — it was only ever present
+# transitively via scikit-learn/pandas, which is one upgrade away from
+# breaking. tests/test_config_parity.py keeps this pinned.
+numpy>=1.26.0
 
 # --- Track T6 : Streamlit dashboard -----------------------------------------
 streamlit>=1.35.0

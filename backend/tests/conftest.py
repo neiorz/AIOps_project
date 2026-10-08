@@ -102,6 +102,32 @@ def _no_real_chaos_mesh():
     ChaosMeshInjector._detect = original_detect
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _offline_llm_generation():
+    """Keep the agent's LLM stage offline for the whole suite (Phase 2).
+
+    investigate_incident now calls T3's generation contract on every
+    investigation. Without this guard, every investigation test would dial a
+    real Ollama server when one happens to be running (~11 s each), and T3
+    step 5 requires `make test` to pass with no network at all.
+
+    The default answers UNREACHABLE with no diagnosis and no narrative —
+    precisely what the pre-pipeline agent produced, so existing assertions
+    see bit-identical results. Tests that exercise the generation path
+    replace the seam with their own answer.
+    """
+    from app.agent import sre_agent
+    from app.api.llm import RCAResponse
+
+    def _unreachable(_request):
+        return RCAResponse(status="UNREACHABLE", citations=[])
+
+    original = sre_agent._generate_rca
+    sre_agent._generate_rca = _unreachable
+    yield
+    sre_agent._generate_rca = original
+
+
 @pytest.fixture
 def isolated_model(tmp_path, monkeypatch):
     """Point ML_MODEL_PATH + the anomaly log at throwaway files.

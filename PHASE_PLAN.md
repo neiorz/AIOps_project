@@ -138,6 +138,25 @@ Each row is one step. Work **top → bottom** inside a track, but tracks run **i
 | 5 | Demo prep: screenshots, scorecard JSON, video/PR | — | reproducible from a clean clone |
 | 6 | Push + final PR | `git push` | CI green |
 
+**Finding carried from Phase 2 (decision: fix during Phase 3 demo/eval prep):**
+live auto-heal can never fire because two evidence channels are structurally
+blind — the failure is *safe* (the gate blocks; it never misheals), but the
+demo/scorecard would only ever show `REMEDIATION_BLOCKED`.
+
+1. **PromQL** — the agent queries `http_requests_total{service=…}`, but root
+   `/metrics` exposes only `service_up`; the per-service counters live on
+   `/mesh/metrics`, which Prometheus does not scrape. Crashed services also
+   refuse requests without counting them (`errors_total` is never
+   incremented; the `503 … errors_total + 1` display line is synthetic).
+2. **LogQL** — the agent queries `{service=…}`; Loki ships labels
+   `app / level / logger / service_name`, so no stream ever matches.
+
+Effect: `tool_agreement` caps at 0.5 → confidence ≈ 0.53 < 0.65 → the
+autonomous branch always blocks (allow-path is proven offline by
+`tests/test_pipeline.py`). Fixing = honest refusal counting in the mesh
+mirror + root `/metrics` exposure of mesh counters + LogQL label alignment;
+quantify the impact on auto-heal rates via the Phase 3 scorecard.
+
 ---
 
 ### Suggested order

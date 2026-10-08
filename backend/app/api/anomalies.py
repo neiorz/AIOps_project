@@ -10,12 +10,16 @@ Live behaviour:
   POST /anomalies/score  -> 409 until a model exists, otherwise scores a batch
   POST /anomalies/train  -> fits IsolationForest on app/ml/data/features.csv
 """
+import logging
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.correlation.engine import get_correlation_engine
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/anomalies", tags=["Anomaly Detection"])
 
@@ -109,14 +113,30 @@ def score_samples(req: ScoreRequest) -> ScoreResponse:
         results.append(sample.model_copy(update={"anomaly_score": sc, "is_anomaly": is_anom}))
 
     # Persist only the actual detections so the timeline stays meaningful.
-    append_anomalies([p.model_dump() for p in results if p.is_anomaly])
+    detected = [p for p in results if p.is_anomaly]
+    append_anomalies([p.model_dump() for p in detected])
+
+    # Phase 2 pipeline: a detection is the START of the incident lifecycle,
+    # not the end of it. Correlate each anomaly so it can flow
+    # agent -> LLM -> confidence gate -> remediation like any other alert.
+    for point in detected:
+        incident = get_correlation_engine().correlate_anomaly(
+            service=point.service,
+            anomaly_score=point.anomaly_score,
+            timestamp=point.timestamp,
+        )
+        logger.info(
+            "anomaly on %s (score=%.4f) -> incident %s (%d alert(s) clustered)",
+            point.service, point.anomaly_score, incident.incident_id,
+            incident.total_alerts,
+        )
 
     return ScoreResponse(
         status="SCORED",
         model=model_status(),
         scored=len(results),
-        anomaly_count=sum(1 for p in results if p.is_anomaly),
-        anomalies=[p for p in results if p.is_anomaly],
+        anomaly_count=len(detected),
+        anomalies=detected,
     )
 
 

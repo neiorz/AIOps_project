@@ -150,15 +150,41 @@ async def trigger_diagnosis(incident_id: str):
             "recommended_command": result["root_cause_analysis"]["recommended_remediation"]
         }
     else:
-        # Auto-execute remediation immediately in autonomous mode
-        mesh_result = get_mesh_manager().remediate_service(incident.primary_service)
-        incident.status = "RESOLVED"
-        incident.updated_at = time.time()
-        result["approval_state"] = {
-            "status": "AUTO_EXECUTED",
-            "message": "Autonomous mode active: Self-healing executed automatically.",
-            "mesh_result": mesh_result
-        }
+        # Autonomous mode — but autonomy is not a licence to heal blindly.
+        # Phase 2 plan step 3: confidence below RCA_MIN_CONFIDENCE must NOT
+        # auto-heal. The incident keeps a non-terminal status (never
+        # RESOLVED): nothing healed, and claiming otherwise is exactly the
+        # lie the honesty contract exists to prevent. INVESTIGATING also
+        # keeps it mergeable, so more alerts can still lift the confidence.
+        if result["root_cause_analysis"]["remediation_blocked"]:
+            confidence = result["root_cause_analysis"]["confidence_score"]
+            incident.status = "INVESTIGATING"
+            incident.updated_at = time.time()
+            result["approval_state"] = {
+                "status": "REMEDIATION_BLOCKED",
+                "message": (
+                    f"Autonomous mode active, but confidence {confidence:.3f} is below "
+                    f"RCA_MIN_CONFIDENCE={settings.RCA_MIN_CONFIDENCE}: remediation was "
+                    "NOT executed. Gather more evidence or escalate to a human "
+                    "operator (POST /incidents/{{id}}/approve)."
+                ),
+                "confidence_score": confidence,
+                "min_confidence": settings.RCA_MIN_CONFIDENCE,
+            }
+            logger.warning(
+                "auto-remediation BLOCKED for %s: confidence %.3f < %.2f",
+                incident.incident_id, confidence, settings.RCA_MIN_CONFIDENCE,
+            )
+        else:
+            # Auto-execute remediation immediately in autonomous mode
+            mesh_result = get_mesh_manager().remediate_service(incident.primary_service)
+            incident.status = "RESOLVED"
+            incident.updated_at = time.time()
+            result["approval_state"] = {
+                "status": "AUTO_EXECUTED",
+                "message": "Autonomous mode active: Self-healing executed automatically.",
+                "mesh_result": mesh_result
+            }
 
     return result
 

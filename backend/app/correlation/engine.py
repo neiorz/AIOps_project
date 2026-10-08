@@ -85,6 +85,45 @@ class AlertCorrelationEngine:
             self.active_incidents[new_incident_id] = incident
             return incident
 
+    def correlate_anomaly(
+        self,
+        service: str,
+        anomaly_score: float,
+        timestamp: Optional[float] = None,
+    ) -> CorrelatedIncident:
+        """Phase 2 pipeline entry: raise an incident from an ML detection.
+
+        An anomaly is the detector's verdict on telemetry, so it enters the
+        correlation pipeline as an alert like any other — the same window
+        clustering applies, which is what lets a burst of anomalous points
+        become ONE incident instead of five.
+
+        The detection carries no tenant (AnomalyPoint has no such field), so
+        the alert inherits RawAlert's default tenant — the same default an
+        unattributed Alertmanager webhook gets. The origin stays visible in
+        the labels instead of being invented into the tenant field.
+
+        The id is ns-unique on purpose: second-granularity ids collided
+        during T7 and broke the ``total_alerts == len(alert_ids)`` invariant
+        the honesty tests pin.
+        """
+        alert = RawAlert(
+            id=f"anom_{time.time_ns()}",
+            alertname="AnomalyDetected",
+            service=service,
+            severity="warning",
+            timestamp=timestamp if timestamp is not None else time.time(),
+            description=(
+                f"Isolation Forest flagged anomaly_score={anomaly_score:.4f} "
+                f"on {service}"
+            ),
+            labels={
+                "source": "anomaly-detector",
+                "anomaly_score": f"{anomaly_score:.4f}",
+            },
+        )
+        return self.correlate(alert)
+
     def get_all_incidents(self) -> List[CorrelatedIncident]:
         return list(self.active_incidents.values())
 
