@@ -43,6 +43,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.agent.tools import call_tool, tool_names
+from app.api.llm import RCAResponse, RCARequest
 from app.config import settings
 from app.correlation.engine import CorrelatedIncident
 from app.rag.retriever import get_runbook_retriever
@@ -50,6 +51,19 @@ from app.sla.calculator import SLARiskCalculator
 from app.tools.counters import record_investigation
 
 logger = logging.getLogger(__name__)
+
+
+def _generate_rca(request: RCARequest) -> RCAResponse:
+    """Phase 2 seam: ask T3's generation contract for an evidence narrative.
+
+    Module-level so tests can replace it wholesale — conftest makes the
+    suite's default an honest ``UNREACHABLE``, which is exactly what the
+    pre-pipeline agent produced (no narrative, runbook-title diagnosis,
+    same gate), keeping the suite offline and its assertions unchanged.
+    """
+    from app.api.llm import generate_rca
+
+    return generate_rca(request)
 
 #: Hard stop so a runaway decision loop cannot spin forever (T4 step 2).
 MAX_STEPS = 5
@@ -397,6 +411,45 @@ class AutonomousSREAgent:
             for e in evidence
         ]
 
+        # --- LLM narrative stage (Phase 2: agent -> T3 contract) ---------
+        llm_response = _generate_rca(RCARequest(
+            incident_id=incident.incident_id,
+            primary_service=incident.primary_service,
+            symptom=incident.root_cause_candidate.replace("_", " "),
+            severity=incident.severity,
+            evidence=[
+                {
+                    "tool": e["tool"],
+                    "observation": e.get("error") or self._summarise(e["tool"], e),
+                    "verdict": e["verdict"],
+                    "ok": e["ok"],
+                }
+                for e in evidence
+            ],
+            runbook_context=(
+                f"{matched_runbook['title']}\n"
+                f"{(matched_runbook.get('content') or '')[:2000]}"
+                if matched_runbook
+                else ""
+            ),
+            # The PURE retrieval term, not the blend: the field is named
+            # retrieval_confidence, and the agent's own gate (below) already
+            # owns the blended number — one gate, one authority.
+            retrieval_confidence=retrieval_confidence,
+        ))
+        if llm_response.status == "OK" and llm_response.diagnosis and llm_response.narrative:
+            final_diagnosis = llm_response.diagnosis
+            narrative = llm_response.narrative
+        else:
+            # Honest degradation: without generation the diagnosis stays the
+            # matched runbook and no narrative is invented.
+            final_diagnosis = rca_title
+            narrative = None
+            logger.info(
+                "LLM stage for %s returned %s — keeping runbook diagnosis, no narrative",
+                incident.incident_id, llm_response.status,
+            )
+
         investigation_duration = round(time.time() - investigation_start, 3)
 
         # T4 step 2 gate: the agent must actually have gathered evidence.
@@ -425,7 +478,18 @@ class AutonomousSREAgent:
                 "tools_available": tool_names(),
             },
             "root_cause_analysis": {
-                "diagnosis": rca_title,
+                # LLM diagnosis when generation succeeded, otherwise the
+                # matched runbook title — the pre-pipeline behaviour.
+                "diagnosis": final_diagnosis,
+                # None when generation did not happen: never a fabricated line.
+                "narrative": narrative,
+                # Provenance of the generation stage itself (Phase 2): says
+                # honestly whether a model produced the narrative above.
+                "llm": {
+                    "status": llm_response.status,
+                    "model": llm_response.model,
+                    "citations": llm_response.citations,
+                },
                 "confidence_score": confidence,
                 "confidence_breakdown": {
                     "retrieval_confidence": retrieval_confidence,
