@@ -7,10 +7,13 @@ only the handler bodies were filled in.
 
 Live behaviour:
   GET  /anomalies        -> model status + persisted anomalies + recent series
+  GET  /anomalies/evaluation -> measured hold-out metrics for the production model
   POST /anomalies/score  -> 409 until a model exists, otherwise scores a batch
   POST /anomalies/train  -> fits IsolationForest on app/ml/data/features.csv
 """
+import json
 import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -90,6 +93,41 @@ def get_anomalies() -> Dict[str, Any]:
         "anomalies": persisted,
         "series": recent,
     }
+
+
+@router.get("/evaluation")
+def get_evaluation() -> Dict[str, Any]:
+    """Measured hold-out evaluation of the production anomaly model.
+
+    ``python -m app.ml.retrain`` records these numbers beside the model when
+    it is promoted; this endpoint only reads them back, so the dashboard can
+    never display a metric nobody computed.
+    """
+    from app.ml.scoring import model_status
+
+    path = Path(settings.ML_MODEL_PATH).with_suffix(".eval.json")
+    if not path.exists():
+        return {
+            "available": False,
+            "note": ("No evaluation recorded for the production model yet — "
+                     "run `python -m app.ml.retrain --force` to fit, "
+                     "evaluate and record it."),
+        }
+    try:
+        doc = json.loads(path.read_text())
+    except (OSError, ValueError) as exc:
+        return {"available": False, "note": f"evaluation file unreadable: {exc}"}
+
+    # The file describes the model that was promoted when it was written. If
+    # production has changed since (e.g. POST /anomalies/train), say so
+    # rather than presenting stale numbers as if they were current.
+    current = (model_status() or {}).get("trained_at")
+    recorded = doc.get("trained_at")
+    doc["applies_to_production"] = bool(
+        current is not None and recorded is not None
+        and abs(float(current) - float(recorded)) < 1e-6
+    )
+    return {"available": True, **doc}
 
 
 @router.post("/score", response_model=ScoreResponse)

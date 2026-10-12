@@ -1,6 +1,7 @@
-"""AIOps Platform - Streamlit dashboard (Track T6, steps 1-5)."""
+"""AIOps Platform — Streamlit operator dashboard."""
 import os
 from collections import Counter
+from datetime import datetime
 
 import httpx
 import streamlit as st
@@ -11,7 +12,7 @@ API_BASE = os.getenv("STREAMLIT_API_BASE", "http://localhost:8000/api/v1")
 st.set_page_config(page_title="AIOps Platform", page_icon="📊", layout="wide")
 
 
-@st.cache_data(ttl=30)          # step 4: auto-refresh without restarting
+@st.cache_data(ttl=30)          # auto-refresh without restarting
 def get(path: str):
     """Fetch from the backend; return {'_error': ...} instead of crashing."""
     try:
@@ -34,13 +35,23 @@ def bar(x, y, title, note=""):
     return fig
 
 
+def pct(value, digits=2):
+    """Fraction -> '99.49%'; None -> 'n/a' (an undefined metric is not a zero)."""
+    return "n/a" if value is None else f"{value * 100:.{digits}f}%"
+
+
+def when(ts):
+    """Unix timestamp -> readable string; None -> 'unknown'."""
+    return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M") if ts else "unknown"
+
+
 st.title("📊 AIOps Platform — Autonomous Incident Detection & Self-Healing")
 st.caption(f"API: `{API_BASE}`  ·  data refreshes every 30 s")
 
-# step 2: five tabs
-tabs = st.tabs(["📈 Overview", "🚨 Incidents", "🤖 Anomalies", "🧠 RCA", "💡 Insights"])
+tabs = st.tabs(["📈 Overview", "🚨 Incidents", "🤖 Anomalies",
+                "🏅 Models", "🧠 RCA", "💡 Insights"])
 
-# --- Overview (steps 1-3) --------------------------------------------------
+# --- Overview --------------------------------------------------------------
 with tabs[0]:
     sc = get("/benchmarks/scorecard")
     if "_error" in sc:
@@ -56,7 +67,7 @@ with tabs[0]:
 
         st.divider()
 
-        # --- step 3 chart 1: RCA accuracy gauge ---
+        # --- RCA accuracy gauge ---
         col_a, col_b = st.columns(2)
         with col_a:
             if acc is None:
@@ -81,7 +92,7 @@ with tabs[0]:
                 g.update_layout(height=320, margin=dict(t=50, b=20, l=30, r=30))
                 st.plotly_chart(g, width="stretch")
 
-        # --- step 3 chart 2: telemetry tool usage (REAL counters) ---
+        # --- telemetry tool usage (live counters) ---
         with col_b:
             tools = (sc.get("investigation_efficiency") or {}).get("tool_calls") or {}
             if any(tools.values()):
@@ -93,7 +104,7 @@ with tabs[0]:
             else:
                 st.info("**No tool calls yet** — the agent has not run an investigation.")
 
-        # --- step 3 chart 3: alert compression pipeline ---
+        # --- alert compression pipeline ---
         col_c, col_d = st.columns(2)
         with col_c:
             raw, uniq, inc_n = (sc.get("raw_alerts_ingested", 0),
@@ -109,7 +120,7 @@ with tabs[0]:
             else:
                 st.info("**No alerts ingested yet** — inject chaos to create some.")
 
-        # --- step 3 chart 4: investigation efficiency ---
+        # --- investigation efficiency ---
         with col_d:
             ie = sc.get("investigation_efficiency") or {}
             st.plotly_chart(
@@ -124,7 +135,7 @@ with tabs[0]:
         with st.expander("Full scorecard JSON"):
             st.json(sc)
 
-# --- Incidents (step 3: status chart) --------------------------------------
+# --- Incidents -------------------------------------------------------------
 with tabs[1]:
     inc = get("/incidents")
     if "_error" in inc:
@@ -142,16 +153,16 @@ with tabs[1]:
             width="stretch")
         st.dataframe(inc, width="stretch")
 
-# --- Anomalies (step 3: anomaly timeline) ----------------------------------
+# --- Anomalies -------------------------------------------------------------
 with tabs[2]:
     an = get("/anomalies")
     if "_error" in an:
         st.error(an["_error"])
     else:
-        st.caption(f"Model status: **{an['status']}** — owned by {an['owner']}")
+        st.caption(f"Model status: **{an['status']}** — {an.get('message', '')}")
         pts = an.get("anomalies") or []
         if not pts:
-            st.info("No anomalies yet (T5 will populate this).")
+            st.info("No anomalies detected yet.")
         else:
             normals = [p for p in pts if not p.get("is_anomaly")]
             bad = [p for p in pts if p.get("is_anomaly")]
@@ -173,25 +184,210 @@ with tabs[2]:
             st.plotly_chart(tl, width="stretch")
             st.dataframe(pts, width="stretch")
 
-# --- RCA ------------------------------------------------------------------
+# --- Models: measured accuracy & rating for every model in the stack -------
 with tabs[3]:
+    ev = get("/anomalies/evaluation")
+    sc = get("/benchmarks/scorecard")
+    h = get("/llm/health")
+
+    if "_error" in ev:
+        st.error(f"Cannot reach the API: `{ev['_error']}`")
+    else:
+        st.subheader("🏅 Model scorecards")
+        st.caption("Every number here was computed by the platform itself: "
+                   "a hold-out evaluation for the detector, the ground-truth "
+                   "ledger for the agent.")
+
+        # ---- 1. anomaly detector ----
+        st.markdown("#### Anomaly detector — Isolation Forest (metrics only)")
+        if not ev.get("available"):
+            st.info(ev.get("note", "No evaluation recorded yet."))
+        else:
+            if ev.get("applies_to_production") is False:
+                st.warning("These metrics were recorded for an earlier "
+                           "production model — rerun `python -m app.ml.retrain "
+                           "--force` to refresh them.")
+            m = ev.get("metrics") or {}
+            c1, c2, c3, c4, c5 = st.columns(5)
+            c1.metric("Accuracy", pct(m.get("accuracy")))
+            c2.metric("Precision", pct(m.get("precision")))
+            c3.metric("Recall", pct(m.get("recall")))
+            c4.metric("F1", pct(m.get("f1")))
+            c5.metric("AUROC", pct(m.get("auroc")))
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("TP", m.get("tp", "n/a"))
+            c2.metric("FP", m.get("fp", "n/a"))
+            c3.metric("TN", m.get("tn", "n/a"))
+            c4.metric("FN", m.get("fn", "n/a"))
+
+            pairs = [(label, m.get(key)) for label, key in (
+                ("Accuracy", "accuracy"), ("Precision", "precision"),
+                ("Recall", "recall"), ("F1", "f1"), ("AUROC", "auroc"))]
+            plotted = [(n, v * 100) for n, v in pairs if v is not None]
+            if plotted:
+                st.plotly_chart(
+                    bar([n for n, _ in plotted],
+                        [round(v, 2) for _, v in plotted],
+                        "Detector metrics on held-out data",
+                        f"{ev.get('decision_view', 'faulted-service')} view: "
+                        f"{m.get('n_normal_test', 0)} healthy + "
+                        f"{m.get('n_chaos_test', 0)} fault rows the model "
+                        f"never trained on"),
+                    width="stretch")
+
+            gates = ev.get("gates") or {}
+            lg = gates.get("live_flag_rate") or {}
+            dg = gates.get("detection") or {}
+            gate_rows = [
+                ("Live safety", lg.get("passed"),
+                 f"flags {pct(lg.get('value'))} of held-out live traffic "
+                 f"(limit {pct(lg.get('limit'))})"),
+                ("Detection", dg.get("passed"),
+                 f"faulted-service AUROC {dg.get('auroc')} "
+                 f"(min {dg.get('auroc_min')}), recall {dg.get('recall')} "
+                 f"(min {dg.get('recall_min')})"),
+            ]
+            passed = 0
+            for label, ok, detail in gate_rows:
+                if ok:
+                    passed += 1
+                    st.success(f"**{label} gate** — {detail}")
+                else:
+                    st.error(f"**{label} gate** — {detail}")
+            st.markdown(
+                f"**Rating: {passed}/{len(gate_rows)} promotion gates passed**"
+                + (" — production-ready ✅" if passed == len(gate_rows)
+                   else " — the model cannot be promoted until all gates pass.")
+            )
+
+            views = ev.get("views") or []
+            if views:
+                view_rows = [{
+                    "view": v.get("view"),
+                    "rows": v.get("rows"),
+                    "accuracy": pct((v.get("candidate") or {}).get("accuracy")),
+                    "AUROC": pct((v.get("candidate") or {}).get("auroc")),
+                    "recall": pct((v.get("candidate") or {}).get("recall")),
+                } for v in views]
+                st.dataframe(view_rows, width="stretch")
+                st.caption(
+                    "All three hold-out views. The pooled view includes the "
+                    "healthy bystanders of a chaos run — scoring them at "
+                    "chance is correct behaviour, not a defect. The headline "
+                    "above is the faulted-service view, which is also what "
+                    "the promotion decision is judged on."
+                )
+
+            with st.expander("Model card — what was measured, and how"):
+                feats = ev.get("features") or []
+                cal = ev.get("calibration") or {}
+                st.markdown(f"- **Algorithm:** `{ev.get('algorithm')}` · "
+                            f"contamination = {ev.get('contamination')}")
+                st.markdown(f"- **Trained:** {when(ev.get('trained_at'))} on "
+                            f"**{ev.get('n_samples')}** rows")
+                st.markdown(f"- **Features ({len(feats)}):** "
+                            + ", ".join(f"`{f}`" for f in feats))
+                if cal:
+                    st.markdown(
+                        f"- **Calibration:** target {pct(cal.get('target_rate'))} "
+                        f"flag rate → measured {pct(cal.get('actual_rate'))} on "
+                        f"{cal.get('n_rows')} live rows "
+                        f"({cal.get('flagged')} flagged)"
+                    )
+                st.markdown(f"- **Promotion decision:** {ev.get('reason')}")
+                st.caption(
+                    f"evaluated {when(ev.get('evaluated_at'))} · "
+                    f"decision view: {ev.get('decision_view')}"
+                )
+
+        st.divider()
+
+        # ---- 2. root-cause agent ----
+        st.markdown("#### Root-cause agent — ReAct + retrieval")
+        if "_error" in sc:
+            st.error(sc["_error"])
+        else:
+            acc = sc.get("rca_accuracy_percentage")
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Diagnosis accuracy", "n/a" if acc is None else f"{acc}%")
+            c2.metric("Experiments evaluated", sc.get("experiments_evaluated", 0))
+            c3.metric("MTTD (s)", "n/a" if sc.get("mean_time_to_detect_seconds") is None
+                      else sc["mean_time_to_detect_seconds"])
+            st.caption("Measured against the ground-truth ledger: what chaos "
+                       "was actually injected vs what the agent diagnosed. "
+                       "Target: 85%.")
+
+        st.divider()
+
+        # ---- 3. narrative LLM ----
+        st.markdown("#### Narrative LLM — local Ollama")
+        if "_error" in h:
+            st.error(h["_error"])
+        else:
+            st.write(f"`{h.get('model')}` @ `{h.get('host')}` — status "
+                     f"**{h.get('status')}**")
+            st.caption("Writes the incident narrative only. By design it "
+                       "never supplies a gate number or a confidence — those "
+                       "come from retrieval agreement, so a creative answer "
+                       "cannot raise a score.")
+
+        st.divider()
+
+        # ---- 4. vector retriever ----
+        st.markdown("#### Vector retriever — ChromaDB")
+        st.write("`all-MiniLM-L6-v2` embeddings over runbooks, topologies "
+                 "and post-mortems (runs locally)")
+        correct = None if "_error" in sc else sc.get("rca_correct")
+        st.caption(
+            "No independent accuracy metric by design — retrieval quality "
+            "surfaces in the agent's diagnosis accuracy above"
+            + (f" ({correct} of {sc.get('experiments_evaluated')} experiments "
+               f"found the right evidence)." if correct is not None else ".")
+        )
+
+        st.divider()
+
+        # ---- 5. recommendation ----
+        st.markdown("#### 🎯 Recommended next model — log-based anomaly detection")
+        st.markdown(
+            """
+**DeepLog** — an LSTM over parsed log-template sequences — is the model to
+train on this app's logs next:
+
+- **Why:** today's detector reads five metrics only (`cpu_percent`,
+  `memory_mb`, `latency_s`, `error_rate`, `service_up`). Logs carry the error
+  codes, stack traces and restart messages that metrics never show.
+- **The data already flows:** OpenTelemetry ships every service's logs to
+  Loki, and the agent already queries them with LogQL — no new collection to
+  build.
+- **Fits the offline profile:** Drain template parsing plus a small LSTM
+  trains on CPU and runs locally, like the rest of the platform.
+- **Alternatives:** LogBERT (BERT over log templates) for richer semantics,
+  or a TF-IDF + Isolation Forest baseline that reuses today's estimator.
+
+*Roadmap item — not yet implemented; the metrics model above is what runs today.*"""
+        )
+
+# --- RCA -------------------------------------------------------------------
+with tabs[4]:
     h = get("/llm/health")
     if "_error" in h:
         st.error(h["_error"])
     else:
         st.write(f"**LLM:** `{h['model']}` @ `{h['host']}` — status **{h['status']}**")
         st.caption(
-            "Live probe of the local Ollama server (T3). "
+            "Live probe of the local Ollama server. "
             "Generation: `POST /api/v1/llm/rca`."
         )
 
-# --- Insights (step 5) ------------------------------------------------------
-with tabs[4]:
+# --- Insights --------------------------------------------------------------
+with tabs[5]:
     sc = get("/benchmarks/scorecard")
     an = get("/anomalies")
     h = get("/llm/health")
     inc = get("/incidents")
-    cm = get("/chaos/chaos-mesh")  # T7: can this platform really inject?
+    cm = get("/chaos/chaos-mesh")   # can this deployment really inject?
 
     if "_error" in sc:
         st.error(f"Cannot reach the API: `{sc['_error']}`")
@@ -200,29 +396,28 @@ with tabs[4]:
         tools = ie.get("tool_calls") or {}
         acc = sc.get("rca_accuracy_percentage")
 
-        # ---------- track readiness: auto-derived from API signals ----------
-        st.subheader("🚦 Track readiness")
-        st.caption("Derived from live API responses — updates itself as tracks complete.")
+        # ---------- capability status: auto-derived from API signals ----------
+        st.subheader("🟢 Platform capabilities")
+        st.caption("Derived from live API responses — reflects this running deployment.")
         signals = [
-            ("T1 Observability", tools.get("promql", 0) > 0,
-             f"PromQL calls = {tools.get('promql', 0)} (needs > 0)"),
-            ("T2 Persistence", sc.get("sla_protection_rate") is not None,
+            ("Observability pipelines", tools.get("promql", 0) > 0,
+             f"PromQL queries served = {tools.get('promql', 0)} (needs > 0)"),
+            ("Durable incident store", sc.get("sla_protection_rate") is not None,
              f"sla_protection_rate = {sc.get('sla_protection_rate')} (needs a number)"),
-            ("T3 Local LLM", h.get("status") not in (None, "STUB", "NOT_IMPLEMENTED"),
+            ("Local LLM diagnostics", h.get("status") not in (None, "STUB", "NOT_IMPLEMENTED"),
              f"llm status = {h.get('status')}"),
-            # > 1, not > 0: the pre-T4 agent already made one tool call per
-            # investigation, so > 0 went green before this track existed.
-            # Only the ReAct loop makes a second call.
-            ("T4 Agent tools", ie.get("avg_tool_calls_per_rca", 0) > 1,
+            # One tool call per investigation is the baseline; only the
+            # autonomous loop makes a second, so the check is > 1 — a single
+            # call must not light this up by itself.
+            ("Autonomous investigation agent", ie.get("avg_tool_calls_per_rca", 0) > 1,
              f"avg tool calls/RCA = {ie.get('avg_tool_calls_per_rca', 0)} (needs > 1)"),
-            ("T5 Anomaly detection", an.get("status") not in (None, "STUB", "NOT_IMPLEMENTED"),
+            ("Anomaly detection engine", an.get("status") not in (None, "STUB", "NOT_IMPLEMENTED"),
              f"anomaly status = {an.get('status')}"),
-            ("T6 Streamlit dashboard", True, "you are looking at it ✅"),
-            # T7 built an endpoint that reports this itself; it used to say
-            # "not auto-detectable". None (API unreachable) renders as the
-            # warning state, True as green, False as red — always with the
-            # injector's own reason, so a red row explains itself.
-            ("T7 Chaos Mesh", cm.get("available"),
+            ("Operator dashboard", True, "you are looking at it ✅"),
+            # The injector reports this itself: None (API unreachable) renders
+            # as the warning state, True as green, False as red — always with
+            # the injector's own reason, so a red row explains itself.
+            ("Chaos engineering integration", cm.get("available"),
              f"mode = {cm.get('mode', 'unknown')} — "
              f"{str(cm.get('reason', cm.get('_error', 'unreachable')))[:110]}"),
         ]
@@ -237,7 +432,7 @@ with tabs[4]:
                 st.error(f"**{name}** — {note}")
 
         st.progress(done / len(signals),
-                    text=f"{done} of {len(signals)} tracks complete")
+                    text=f"{done} of {len(signals)} capabilities live in this deployment")
 
         # ---------- the actual plain-language summary ----------
         st.subheader("📝 Summary")
@@ -285,13 +480,7 @@ with tabs[4]:
                    if busiest == "k8s_api" and tools[busiest] > 100 else "")
             )
 
-        # ---------- what is still missing ----------
-        st.subheader("🧩 Still to come")
-        pending = [n for n, s, _ in signals if s is False]
-        if pending:
-            st.markdown("Waiting on: " + ", ".join(f"**{p}**" for p in pending))
-        else:
-            st.success("All detectable tracks are complete.")
         if not inc:
-            st.caption("No incidents in this session yet (the ledger is in-memory — "
-                       "it resets when the backend restarts).")
+            st.caption("No incidents in this session yet — the investigation "
+                       "ledger is in-memory and resets when the backend "
+                       "restarts.")

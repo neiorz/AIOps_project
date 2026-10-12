@@ -41,6 +41,8 @@ backend/app/ml/reports/
 # Runtime outputs. app/ml/data/features.csv IS committed (it is the training
 # corpus); these are regenerated on every fit / detection.
 backend/app/ml/model.meta.json
+# Evaluation recorded at promotion time; served by GET /anomalies/evaluation.
+backend/app/ml/model.eval.json
 # Sidecar for retrain.py's scratch candidate (see CANDIDATE_PATH). It tracks
 # wherever that constant points, so keep the two in step.
 backend/app/ml/data/candidate.meta.json

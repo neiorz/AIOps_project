@@ -226,3 +226,54 @@ def test_api_train_refuses_when_features_are_missing(test_client, isolated_model
     res = test_client.post("/api/v1/anomalies/train")
     assert res.status_code == 409
     assert "sample" in res.json()["detail"].lower()
+
+
+# --------------------------------------------------------------------------
+# GET /anomalies/evaluation — the dashboard's measured model scorecard
+# --------------------------------------------------------------------------
+
+def test_evaluation_endpoint_says_so_when_nothing_is_recorded(
+    test_client, isolated_model
+):
+    """No recorded evaluation must say so — never invent numbers."""
+    body = test_client.get("/api/v1/anomalies/evaluation").json()
+    assert body["available"] is False
+    assert "retrain" in body["note"]
+
+
+def test_evaluation_endpoint_returns_recorded_metrics(
+    test_client, isolated_model
+):
+    """A recorded evaluation comes back whole and flags staleness honestly."""
+    import json
+
+    (isolated_model / "model.eval.json").write_text(json.dumps({
+        "trained_at": 1.0,
+        "metrics": {"accuracy": 0.9, "auroc": 0.95},
+        "gates": {"detection": {"passed": True}},
+    }))
+    body = test_client.get("/api/v1/anomalies/evaluation").json()
+    assert body["available"] is True
+    assert body["metrics"]["accuracy"] == 0.9
+    # Nothing is loaded from the throwaway path, so these numbers must not
+    # claim to describe the production model.
+    assert body["applies_to_production"] is False
+
+
+def test_evaluation_endpoint_detects_a_model_changed_since_it_was_recorded(
+    test_client, isolated_model, monkeypatch
+):
+    """If production moved on (e.g. POST /anomalies/train), say so."""
+    import json
+
+    (isolated_model / "model.eval.json").write_text(json.dumps({
+        "trained_at": 1.0,
+        "metrics": {"accuracy": 0.9},
+    }))
+    # The handler resolves model_status at call time, so a newer production
+    # model is visible without touching any file.
+    monkeypatch.setattr(scoring, "model_status",
+                        lambda: {"loaded": True, "trained_at": 2.0})
+    body = test_client.get("/api/v1/anomalies/evaluation").json()
+    assert body["available"] is True
+    assert body["applies_to_production"] is False
