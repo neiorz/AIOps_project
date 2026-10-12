@@ -89,11 +89,15 @@ def train_model(
 
     target = Path(model_path) if model_path else Path(settings.ML_MODEL_PATH)
     target.parent.mkdir(parents=True, exist_ok=True)
+    # ONE timestamp for bundle and meta: model_status() serves the bundle's
+    # and the evaluation sidecar records the meta's, so two clocks here
+    # would make a freshly written sidecar call its own model stale.
+    trained_at = time.time()
     joblib.dump(
         {
             "model": model,
             "feature_names": list(MODEL_FEATURES),
-            "trained_at": time.time(),
+            "trained_at": trained_at,
             "n_samples": len(rows),
         },
         target,
@@ -104,7 +108,7 @@ def train_model(
     invalidate_cache()
 
     meta = {
-        "trained_at": time.time(),
+        "trained_at": trained_at,
         "n_samples": len(rows),
         "algorithm": "IsolationForest",
         "contamination": settings.ML_CONTAMINATION,

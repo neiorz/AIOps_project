@@ -46,6 +46,7 @@ install a model that floods live scoring or cannot detect faults.
 import argparse
 import json
 import logging
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -371,6 +372,30 @@ def run(
                 "keeping the incumbent"
             )
 
+    # A promoted candidate becomes the model the platform serves, so this is
+    # the moment to write its measurements down beside it. The dashboard
+    # reads that file back through GET /anomalies/evaluation — it shows
+    # numbers that were actually computed here, never a typed-in table.
+    if summary["replaced"]:
+        _write_eval_sidecar(production, {
+            "evaluated_at": time.time(),
+            "algorithm": meta.get("algorithm"),
+            "contamination": meta.get("contamination"),
+            "trained_at": meta.get("trained_at"),
+            "n_samples": meta.get("n_samples"),
+            "features": meta.get("feature_names"),
+            "calibration": summary["calibration"],
+            # Headline metrics: the view the promotion decision is judged on
+            # (faulted service only). The pooled view — which includes healthy
+            # bystanders from the same chaos run and therefore scores them at
+            # chance — is kept in "views" so nothing is hidden.
+            "metrics": summary["decision_candidate"],
+            "views": summary["views"],
+            "decision_view": summary["decision_view"],
+            "gates": summary["gates"],
+            "reason": summary["reason"],
+        })
+
     print("\n  gates")
     print(f"    live safety   : {'PASS' if live_passed else 'FAIL'}  "
           f"{live_flag_rate} of held-out live rows flagged "
@@ -412,6 +437,22 @@ def _promote(candidate: Path, production: Path) -> None:
 
     from app.ml.scoring import invalidate_cache
     invalidate_cache()
+
+
+def _write_eval_sidecar(production: Path, doc: Dict[str, Any]) -> None:
+    """Persist the measured evaluation beside the model it describes.
+
+    ``GET /anomalies/evaluation`` reads this file back, so the dashboard
+    shows what the retrain actually computed at promotion time. Written only
+    when a candidate becomes the production model — a kept incumbent keeps
+    the evaluation recorded when *it* was promoted.
+    """
+    path = production.with_suffix(".eval.json")
+    try:
+        path.write_text(json.dumps(doc, indent=2, default=str))
+        print(f"  evaluation : recorded at {path}")
+    except OSError as exc:                      # pragma: no cover - disk fault
+        print(f"  evaluation : could not write {path}: {exc}")
 
 
 def main(argv: Optional[List[str]] = None) -> int:

@@ -463,6 +463,27 @@ def test_dry_run_scores_all_three_views(isolated_model, tmp_path):
     assert summary["n_culprit_rows"] + summary["n_bystander_rows"] == 1600
 
 
+def test_a_promoted_retrain_records_its_evaluation(isolated_model, tmp_path):
+    """The scorecard the dashboard shows must be written down at promotion.
+
+    Promotion is the only moment we know these numbers describe the model
+    being served, so that is when ``GET /anomalies/evaluation`` gets its
+    data — a dry run or a refused candidate records nothing.
+    """
+    summary = run(dry_run=False, force=True,
+                  candidate_path=tmp_path / "cand.joblib")
+
+    assert summary["replaced"] is True
+    eval_path = tmp_path / "model.eval.json"
+    assert eval_path.exists()
+
+    doc = json.loads(eval_path.read_text())
+    assert doc["metrics"]["accuracy"] is not None
+    assert doc["trained_at"] is not None
+    assert set(doc["gates"]) == {"live_flag_rate", "detection"}
+    assert doc["reason"] == summary["reason"]
+
+
 def test_the_decision_is_taken_on_the_faulted_service_view(
     isolated_model, tmp_path
 ):

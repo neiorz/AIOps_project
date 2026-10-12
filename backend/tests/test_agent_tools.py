@@ -136,7 +136,7 @@ def _plan_complete_evidence():
 
 
 def _dashboard_signal():
-    """The exact value streamlit_app.py's T4 row reads.
+    """The exact value the operator dashboard's agent row reads.
 
     The dashboard does not touch the counters directly — it reads
     ``investigation_efficiency.avg_tool_calls_per_rca`` out of the scorecard
@@ -502,23 +502,23 @@ def test_investigation_duration_is_reported(agent, scripted):
 
 
 # --------------------------------------------------------------------------
-# the dashboard seam (T6's file, T4's one-token change)
+# the dashboard seam (operator UI file)
 # --------------------------------------------------------------------------
 
 def test_the_readiness_signal_demands_more_than_one_tool_call():
-    """Guards streamlit_app.py's T4 row.
+    """Guards the agent row of streamlit_app.py's capability list.
 
-    ``> 0`` was already true before this track existed — the old linear
+    ``> 0`` was already true before the ReAct loop existed — the old linear
     agent made exactly one tool call per investigation — so the signal went
-    green while T4 sat unmerged and untested. ``> 1`` can only be satisfied
-    by the ReAct loop.
+    green while the loop sat unmerged and untested. ``> 1`` can only be
+    satisfied by the ReAct loop.
     """
     source = (REPO_ROOT / "streamlit_app.py").read_text()
-    index = source.index('"T4 Agent tools"')
+    index = source.index('"Autonomous investigation agent"')
     clause = source[index:index + 400]
 
     match = re.search(r'avg_tool_calls_per_rca",\s*0\)\s*>\s*(\d+)', clause)
-    assert match, "could not find the T4 readiness expression"
+    assert match, "could not find the agent capability expression"
 
     threshold = int(match.group(1))
     assert threshold >= 1, (
@@ -545,7 +545,7 @@ def test_the_react_loop_lights_the_signal(agent, scripted):
     _run(agent.investigate_incident(_incident()))
 
     average = _dashboard_signal()
-    assert average > 1, "T4's own gate: more than one tool call per RCA"
+    assert average > 1, "the row's own gate: more than one tool call per RCA"
 
 
 def test_mesh_status_is_declared_in_the_ledger():
