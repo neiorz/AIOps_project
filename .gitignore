@@ -43,6 +43,10 @@ backend/app/ml/reports/
 backend/app/ml/model.meta.json
 # Evaluation recorded at promotion time; served by GET /anomalies/evaluation.
 backend/app/ml/model.eval.json
+# The log model and its sidecars (trained by python -m app.ml.train_logs).
+backend/app/ml/log_model.joblib
+backend/app/ml/log_model.meta.json
+backend/app/ml/log_model.eval.json
 # Sidecar for retrain.py's scratch candidate (see CANDIDATE_PATH). It tracks
 # wherever that constant points, so keep the two in step.
 backend/app/ml/data/candidate.meta.json

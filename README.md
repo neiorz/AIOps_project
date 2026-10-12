@@ -81,14 +81,14 @@ curl -s localhost:8000/api/v1/chaos/ledger           # raw ground truth
 
 | Metric | Measured value | Source field |
 |---|---|---|
-| RCA accuracy | **71.4%** (15 of 21 experiments correct) | `rca_accuracy_percentage` |
-| Noise reduction | **62.5%** (16 raw alerts → 6 incidents) | `noise_reduction_percentage` |
-| Mean time to detect | **18.751 s** | `mean_time_to_detect_seconds` |
+| RCA accuracy | **66.7%** (26 of 39 experiments correct) | `rca_accuracy_percentage` |
+| Noise reduction | **62.5%** (16 raw alerts → 6 incidents, measured during the benchmark run) | `noise_reduction_percentage` |
+| Mean time to detect | **20.818 s** | `mean_time_to_detect_seconds` |
 | SLA protection rate | **100%** (no SLA breach in the run) | `sla_protection_rate` |
-| Tool calls during the run | **622** total, avg **4.0** per RCA (mesh 6 / PromQL 6 / LogQL 6 / k8s 604) | `investigation_efficiency` |
-| Ground-truth experiments | **21** rows: 13 real Chaos Mesh CRs, 1 disclosed local-simulation fallback, 7 pre-contract rows with no recorded mode | ledger `injection_mode` |
-| Per-RCA duration | **18.3 – 29.6 s** including the llama3.2:3b narrative | ledger `investigation_duration_seconds` |
-| Regression suite | **253 tests passing** (offline, deterministic) | `make test` |
+| Tool calls during the run | **505** total (current server process) | `investigation_efficiency` |
+| Ground-truth experiments | **39** rows: 30 real Chaos Mesh CRs, 2 disclosed local-simulation fallbacks, 7 pre-contract rows with no recorded mode | ledger `injection_mode` |
+| Per-RCA duration | **15.6 s median** (20.8 s mean across 39 rows, including the llama3.2:3b narrative) | ledger `investigation_duration_seconds` |
+| Regression suite | **262 tests passing** (offline, deterministic) | `make test` |
 
 The accuracy figure is unclamped — incorrect diagnoses lower it by design
 (`backend/app/api/benchmarks.py`).
@@ -104,16 +104,19 @@ Every model in the stack, with its measured accuracy and rating — all
 visible live in the operator dashboard's **Models** tab. The detector's
 numbers come from a held-out evaluation (790 rows it never trained on),
 recorded beside the model at promotion time and served by
-`GET /api/v1/anomalies/evaluation`. Reproduce both:
+`GET /api/v1/anomalies/evaluation`; the log model records its evaluation
+beside itself the same way. Reproduce:
 
 ```bash
-cd backend && .venv/bin/python -m app.ml.retrain --force
+cd backend && .venv/bin/python -m app.ml.retrain --force   # metrics detector
+.venv/bin/python -m app.ml.train_logs                      # log detector (needs kubectl + cluster)
 ```
 
 | Model | Role | Measured accuracy & rating |
 |---|---|---|
 | **Isolation Forest** (`model.joblib`) | Anomaly detection on service metrics (`cpu_percent`, `memory_mb`, `latency_s`, `error_rate`, `service_up`) | **Accuracy 99.49%** · precision 98.77% · recall 100% · F1 99.38% · AUROC 99.91% · FPR 0.85% (TP 320 / FP 4 / TN 466 / FN 0, on 790 held-out rows) — **2/2 promotion gates pass**: live flag rate **3.03%** ≤ 15%, faulted-service AUROC 0.9991 ≥ 0.95, recall 1.00 ≥ 0.90. Calibration: target 5% → measured 4.55% on 66 live rows |
-| **ReAct RCA agent** + ChromaDB retrieval | Root-cause diagnosis from runbooks & post-mortems | **71.4%** diagnosis accuracy (15 of 21 chaos experiments), unclamped — `GET /api/v1/benchmarks/scorecard` |
+| **Log sequence detector** (`log_model.joblib`) | Anomaly detection on service **log streams** — DeepLog-style: mined log templates + per-service next-template transitions | **Next-event accuracy 92.02%** on 188 held-out healthy events · false-alarm rate **7.98%** · **100% detection** of a real fault window (297 events captured while an 850 ms latency fault was active in cartservice — all 148 fault-signature lines flagged as unseen templates, plus the ordinary request lines that follow them, so the detector surfaces the whole disrupted interval). Window 3 / top-k 2 · 9 templates over 4 services (cart, frontend, payment, productcatalog) |
+| **ReAct RCA agent** + ChromaDB retrieval | Root-cause diagnosis from runbooks & post-mortems | **66.7%** diagnosis accuracy (26 of 39 chaos experiments), unclamped — `GET /api/v1/benchmarks/scorecard` |
 | **llama3.2:3b** (local Ollama) | Incident narrative & post-mortem drafting | Status-gated via `GET /api/v1/llm/health` — by design it never supplies a score or confidence; gate numbers come only from retrieval agreement |
 | **ChromaDB `all-MiniLM-L6-v2`** | Runbook / topology / post-mortem retrieval | No independent metric by design — its quality surfaces in the RCA accuracy above |
 
@@ -122,12 +125,18 @@ decision is judged on. The pooled view, which includes the healthy bystanders
 of a chaos run (scoring them at chance is correct behaviour), is recorded
 alongside it in the same response, so nothing is hidden.
 
-**Recommended next model — train on logs: DeepLog**, an LSTM over
-Drain-parsed log-template sequences. Today's detector reads metrics only,
-while logs carry the error codes, stack traces and restart messages metrics
-cannot show; the logs already flow to Loki via OpenTelemetry (the agent
-queries them with LogQL), and DeepLog parses and trains locally on CPU —
-keeping the platform fully offline. Alternatives: LogBERT for richer
-semantics, or a TF-IDF + Isolation Forest baseline that reuses today's
-estimator as the first stepping stone.
+The log detector is trained on the services' own pod logs (collected live
+via `kubectl`), split in time order — it only ever trains on the past. Its
+fault window was produced by activating the platform's local latency
+mechanism inside cartservice (`echo 850 > /tmp/latency_ms`, the same
+command the platform's local-simulation path writes), driving real traffic
+during the fault, and removing the file afterwards — the fault-signature
+lines it must catch carry the cause in their own text.
+
+Its honest blind spot: a fault with **no log signature** (silent CPU burn,
+pure packet delay without the warning line) is invisible to a logs-only
+detector — which is why the metrics detector remains the primary channel;
+the two cover each other's gaps. Scale-up path: swap the count-based
+transitions for an LSTM (DeepLog proper) or LogBERT when log volume grows —
+same templates, same evaluation harness.
 

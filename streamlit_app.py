@@ -303,7 +303,76 @@ with tabs[3]:
 
         st.divider()
 
-        # ---- 2. root-cause agent ----
+        # ---- 2. log sequence detector ----
+        st.markdown("#### Log sequence detector — DeepLog-style template "
+                    "transitions")
+        lev = ev.get("logs") or {}
+        if not lev.get("available"):
+            st.info(lev.get("note", "No log model trained yet."))
+        else:
+            held = lev.get("held_out") or {}
+            fault = (lev.get("anomaly_sets") or [{}])[0]
+            services = ", ".join(
+                f"{s} {n}" for s, n in (lev.get("services") or {}).items())
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Next-event accuracy", pct(held.get("next_event_accuracy")))
+            c2.metric("False-alarm rate", pct(held.get("flagged_rate")))
+            c3.metric("Fault-window detection", pct(fault.get("flagged_rate")))
+            c4.metric("Templates mined", lev.get("n_templates", "n/a"))
+            st.caption(
+                f"Trained on real pod logs ({services}). The false-alarm rate "
+                f"is measured on held-out healthy traffic"
+                + (f"; detection on {fault.get('events')} events captured "
+                   f"while a fault was active, from `{fault.get('source')}`."
+                   if fault else ".")
+            )
+
+            flagged = fault.get("flagged_templates") or {}
+            if flagged:
+                with st.expander(
+                        f"What the detector flagged in the fault window "
+                        f"({sum(flagged.values())} events)"):
+                    for text, count in flagged.items():
+                        st.markdown(f"- **{count}×** `{text}`")
+                    st.caption(
+                        "`<unseen template>` lines are shapes never seen in "
+                        "training — the fault signature itself. Ordinary "
+                        "request lines appear too: they follow a flagged line, "
+                        "so the model's context is already abnormal — the "
+                        "detector surfaces the whole disrupted interval, not "
+                        "just the one bad line."
+                    )
+
+            with st.expander("Model card — how the log detector works"):
+                st.markdown(
+                    f"- **Algorithm:** `{lev.get('algorithm', 'LogTemplateTransitions')}` "
+                    f"— DeepLog-style next-template prediction: log lines are "
+                    f"mined into templates (identifiers become `<*>`), and an "
+                    f"event is flagged when its actual next template is not "
+                    f"among the model's top-k predictions. Predictions are "
+                    f"empirical transition counts — no neural net."
+                )
+                st.markdown(
+                    f"- **Window / top-k:** {lev.get('window')} / "
+                    f"{lev.get('top_k')} · trained {when(lev.get('trained_at'))} "
+                    f"on {lev.get('train_events')} events · held-out "
+                    f"{lev.get('held_out_events')} events "
+                    f"(corpus: {lev.get('corpus')})"
+                )
+                st.markdown(
+                    "- **Blind spot:** a fault with no log signature (silent "
+                    "CPU burn, pure packet delay) is invisible to this "
+                    "detector — the metrics detector above covers those."
+                )
+                st.markdown(
+                    "- **Scale-up path:** swap the count-based transitions for "
+                    "an LSTM (DeepLog proper) or LogBERT when log volume "
+                    "grows — same templates, same evaluation harness."
+                )
+
+        st.divider()
+
+        # ---- 3. root-cause agent ----
         st.markdown("#### Root-cause agent — ReAct + retrieval")
         if "_error" in sc:
             st.error(sc["_error"])
@@ -320,7 +389,7 @@ with tabs[3]:
 
         st.divider()
 
-        # ---- 3. narrative LLM ----
+        # ---- 4. narrative LLM ----
         st.markdown("#### Narrative LLM — local Ollama")
         if "_error" in h:
             st.error(h["_error"])
@@ -334,7 +403,7 @@ with tabs[3]:
 
         st.divider()
 
-        # ---- 4. vector retriever ----
+        # ---- 5. vector retriever ----
         st.markdown("#### Vector retriever — ChromaDB")
         st.write("`all-MiniLM-L6-v2` embeddings over runbooks, topologies "
                  "and post-mortems (runs locally)")
@@ -344,29 +413,6 @@ with tabs[3]:
             "surfaces in the agent's diagnosis accuracy above"
             + (f" ({correct} of {sc.get('experiments_evaluated')} experiments "
                f"found the right evidence)." if correct is not None else ".")
-        )
-
-        st.divider()
-
-        # ---- 5. recommendation ----
-        st.markdown("#### 🎯 Recommended next model — log-based anomaly detection")
-        st.markdown(
-            """
-**DeepLog** — an LSTM over parsed log-template sequences — is the model to
-train on this app's logs next:
-
-- **Why:** today's detector reads five metrics only (`cpu_percent`,
-  `memory_mb`, `latency_s`, `error_rate`, `service_up`). Logs carry the error
-  codes, stack traces and restart messages that metrics never show.
-- **The data already flows:** OpenTelemetry ships every service's logs to
-  Loki, and the agent already queries them with LogQL — no new collection to
-  build.
-- **Fits the offline profile:** Drain template parsing plus a small LSTM
-  trains on CPU and runs locally, like the rest of the platform.
-- **Alternatives:** LogBERT (BERT over log templates) for richer semantics,
-  or a TF-IDF + Isolation Forest baseline that reuses today's estimator.
-
-*Roadmap item — not yet implemented; the metrics model above is what runs today.*"""
         )
 
 # --- RCA -------------------------------------------------------------------

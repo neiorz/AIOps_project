@@ -101,14 +101,19 @@ def get_evaluation() -> Dict[str, Any]:
 
     ``python -m app.ml.retrain`` records these numbers beside the model when
     it is promoted; this endpoint only reads them back, so the dashboard can
-    never display a metric nobody computed.
+    never display a metric nobody computed. The ``logs`` block is the same
+    contract for the log sequence model, recorded by
+    ``python -m app.ml.train_logs``.
     """
     from app.ml.scoring import model_status
+
+    logs_block = _log_evaluation()
 
     path = Path(settings.ML_MODEL_PATH).with_suffix(".eval.json")
     if not path.exists():
         return {
             "available": False,
+            "logs": logs_block,
             "note": ("No evaluation recorded for the production model yet — "
                      "run `python -m app.ml.retrain --force` to fit, "
                      "evaluate and record it."),
@@ -116,7 +121,8 @@ def get_evaluation() -> Dict[str, Any]:
     try:
         doc = json.loads(path.read_text())
     except (OSError, ValueError) as exc:
-        return {"available": False, "note": f"evaluation file unreadable: {exc}"}
+        return {"available": False, "logs": logs_block,
+                "note": f"evaluation file unreadable: {exc}"}
 
     # The file describes the model that was promoted when it was written. If
     # production has changed since (e.g. POST /anomalies/train), say so
@@ -127,6 +133,31 @@ def get_evaluation() -> Dict[str, Any]:
         current is not None and recorded is not None
         and abs(float(current) - float(recorded)) < 1e-6
     )
+    return {"available": True, "logs": logs_block, **doc}
+
+
+def _log_evaluation() -> Dict[str, Any]:
+    """Measured evaluation of the log sequence model, read from its sidecars.
+
+    Same honesty contract as the metrics model: this endpoint never computes
+    or estimates — it only serves what ``python -m app.ml.train_logs``
+    measured and recorded beside the trained model.
+    """
+    from app.ml.log_model import log_model_path
+
+    eval_path = log_model_path().with_suffix(".eval.json")
+    if not eval_path.exists():
+        return {
+            "available": False,
+            "note": ("No log model trained yet — run "
+                     "`python -m app.ml.train_logs` to collect pod logs, "
+                     "train and record the evaluation."),
+        }
+    try:
+        doc = json.loads(eval_path.read_text())
+    except (OSError, ValueError) as exc:
+        return {"available": False,
+                "note": f"log evaluation file unreadable: {exc}"}
     return {"available": True, **doc}
 
 
